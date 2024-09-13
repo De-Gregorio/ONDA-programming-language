@@ -1,0 +1,33 @@
+# Escluder file di prova
+*.qas
+*.txt
+*.png  
+# Escludere notebooks
+*.ipynb
+
+# Escludere cartelle e file di Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Escludere file di log
+*.log
+
+# Escludere file binari e oggetti
+*.bin
+*.o
+*.so
+
+# Escludere file compilati (ad esempio, se stai lavorando con C o C++)
+*.exe
+*.dll
+
+# Escludere file di configurazioni IDE
+.vscode/
+.idea/
+.ipynb_checkpoints/
+
+# Escludere file di sistema
+.DS_Store
+Thumbs.db
