@@ -1,55 +1,44 @@
-import os
-import subprocess
 import sys
-from utils import *
+from .utils import *
 from antlr4 import *
-from antlr_files.GramLexer import GramLexer # type: ignore
-from antlr_files.GramParser import GramParser 
-from CodeGenerator import CodeGenerator
-from SemanticChecker import SemanticChecker
-
-# original_dir = os.getcwd()
-# fileName = os.path.join(original_dir + sys.argv[1])
-# os.chdir("c:\\Users\\frajr\\OneDrive\\Desktop\\quantum_computation\\qcpuv0\\compiler")
-
-antrl_files_path = ".\\antlr_files"
-# clean_dir()
-# build_grammar(antrl_files_path)
-# sys.path.append(antrl_files_path)
+from .antlr_files.GramLexer import GramLexer # type: ignore
+from .antlr_files.GramParser import GramParser 
+from .CodeGenerator import CodeGenerator
+from .assembler import build_program
 
 
+def compile_in_assembly(FileName : str, to_build_graph = False):
+    input_stream = FileStream(read_from_file=True, fileName=FileName)
+    lexer = GramLexer(input_stream)
+    stream = CommonTokenStream(lexer)
+    parser = GramParser(stream)
+    tree = parser.program()
+    if parser.getNumberOfSyntaxErrors() > 0:
+        raise SyntaxError()
+    else:
+        cg = CodeGenerator()  
+        assembly = cg.generate_code(tree)
+        if to_build_graph:
+            create_graph(tree, parser.ruleNames)   
+    return assembly
 
-print("Grammar Building complete..")
+def assemble(source_code : str):
+    def get_program_entry_line(program):
+        return int(program.split("\n")[0].split()[-1])
+    binary = build_program(source_code)
+    return binary, get_program_entry_line(source_code)
 
-with open("input.txt", "r") as file:
-    contenuto = file.read()
-print(contenuto)
-# input_stream = FileStream(read_from_file = True, fileName=fileName)
-input_stream = FileStream(read_from_file=False, contenuto=contenuto)
-lexer = GramLexer(input_stream)
-stream = CommonTokenStream(lexer)
-parser = GramParser(stream)
-tree = parser.program()
-if parser.getNumberOfSyntaxErrors() > 0:
-    print("syntax errors")
-    exit()
-else:
-    print("Parsing Completed..")
-    cg = CodeGenerator()  
-    assembly = cg.generate_code(tree)
-    assembly = "entry point: " + str(cg.blocks_info["main"]["ENTRY_LINE"] + 1) + "\n" + assembly 
-    create_graph(tree, parser.ruleNames)
-
-
-# os.chdir(original_dir)
-out_file_path = "out.qas"
-# try:
-#     out_file_path = sys.argv[2]
-# except IndexError:
-#     out_file_path = "out.qas"
-
-with open(out_file_path, "w") as file:
-    file.write(assembly)
-
-
- 
+def compile():
+    # python main.py input.* outfilename
+    SourceFileName = sys.argv[1]
+    if len(sys.argv) < 3:
+        OutFileName = "out.exe"
+    else:
+        OutFileName = sys.argv[2]  
+    if OutFileName[-4:] != ".exe":
+        OutFileName += ".exe"
+    assembly = compile_in_assembly(SourceFileName)
+    binary, arg = assemble(assembly)
+    with open(OutFileName, "w") as out_file:
+        out_file.write(binary)            
+    return arg, OutFileName

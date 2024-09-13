@@ -1,5 +1,5 @@
 import subprocess
-dic = {
+intructions_info = {
     "add"   : (0, (5, 5, -16)),
     "addi"  : (1, (5, 21)),
     "cadd"  : (2, (5, 5, 5, -11)),
@@ -152,9 +152,9 @@ def to_binary(num, n_bit : int):
 def build_inst(assem_line: str):
     
     words = assem_line.split()
-    if words[0] not in dic.keys():
+    if words[0] not in intructions_info.keys():
         raise KeyError(f"{words[0]} is not a keyword")
-    info = dic[words[0]]
+    info = intructions_info[words[0]]
     n_param = 0
     for el in info[1]:
         if el > 0:
@@ -172,8 +172,8 @@ def build_inst(assem_line: str):
     return instruction
 
 def replace_aliases(line:str):
-    parts = line.split()
-    registers = [parts[i].split(",")[0] for i in range(1, len(parts))]
+    parts = line.split() 
+    registers = [part.split(",")[0] for part in parts[1:]]
     registers_idxs = [str(register_to_index(r)) for r in registers]
     # registers = [str(register_to_index(parts[i].split(',')[0])) for i in range(1, len(parts))]
     new_line = parts[0]
@@ -213,28 +213,22 @@ def build_program(program : str):
             binary += build_inst(line)
     return binary
 
-def get_entry_line(program):
-    return int(program.split("\n")[0].split()[-1])
 
-def compila(file_path = "main.qas"):
-    with open(file_path, 'r') as file:
-        contenuto = file.read()
-        
-    with open("out.txt", "w") as file:
-        file.write(build_program(contenuto))
-    # Stampa il contenuto del file
-    # print(contenuto)
-    # print("-"*50) 
-    return get_entry_line(contenuto)
+def assemble(source_code : str, OutFileName : str = None):
+    def get_entry_line(program):
+        return int(program.split("\n")[0].split()[-1])
 
-def riconfigura_engine(file_path = "run_engine.cpp"):
-    name_length = file_path.find(".")
-    compilation = subprocess.run(["g++",file_path, "-o", file_path[:name_length] + ".exe"], capture_output=True, text=True)
-    return compilation 
+    if not OutFileName:
+        OutFileName = "out.exe"
+    with open(OutFileName, "w") as file:
+        file.write(build_program(source_code))
+
+    return get_entry_line(source_code)
+
     
-def compile_and_execute(file_path = "main.qas", verbose = False):
-    arg = compila(file_path)
-    if verbose:
+def assemble_and_execute(source_code, debug = False):
+    arg = assemble(source_code)
+    if debug:
         print("..compiled..", arg)
     return subprocess.run(["./run_engine.exe", str(arg)], capture_output=True, text=True)
 

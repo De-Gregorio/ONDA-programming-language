@@ -1,6 +1,6 @@
 from builtins import *
-from antlr_files.GramVisitor import GramVisitor 
-from antlr_files.GramParser import GramParser 
+from .antlr_files.GramVisitor import GramVisitor 
+from .antlr_files.GramParser import GramParser 
 from antlr4.tree.Tree import TerminalNodeImpl
 
 # !!!!!!THAT SHIT DOESN'T WORK, FIX IT BEFORE USING IT!!!!!!!!! 

@@ -7,9 +7,10 @@ using namespace std;
 
 int main(int argc, char* argv[])
 {
-    freopen("out.txt", "r", stdin);
-    string program; cin >> program;
     int entry_point = std::atoi(argv[1]);
+    string input_file = argv[2];
+    freopen(input_file.c_str(), "r", stdin);
+    string program; cin >> program;
     int p_len = program.size();
     if(p_len / 32 >= N){
         cout << "program is too long: program is " << 

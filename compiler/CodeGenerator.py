@@ -1,9 +1,9 @@
 from builtins import *
-from antlr_files.GramVisitor import GramVisitor
-from antlr_files.GramParser import GramParser 
+from .antlr_files.GramVisitor import GramVisitor
+from .antlr_files.GramParser import GramParser 
 from antlr4.tree.Tree import TerminalNodeImpl
-from PlaceHolderAssigner import PlaceHolderAssigner
-from SemanticChecker import SemanticChecker
+from .PlaceHolderAssigner import PlaceHolderAssigner
+from .SemanticChecker import SemanticChecker
 # TO DO 
 # ___CLEAN AR
 # GET_AARGS & CLEAN_AARGS
@@ -64,6 +64,9 @@ class CodeGenerator(GramVisitor):
         self.blocks_info = {} # [block(or function)_id].key() = ["ENTRY_LINE", "LENGTH"] 
         self.visitProgram(tree)
         self.replace_labels()
+        self.output.value = "entry point: " + \
+            str(self.blocks_info["main"]["ENTRY_LINE"] + 1) + "\n" + \
+            self.output.value 
         return self.output.value
   
     def get_fargs_size(self, fargs):

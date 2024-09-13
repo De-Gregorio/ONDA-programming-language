@@ -3,7 +3,7 @@ import subprocess
 import shutil
 from antlr4 import CommonTokenStream
 from antlr4.tree.Tree import TerminalNodeImpl
-from antlr_files.GramParser import GramParser
+from .antlr_files.GramParser import GramParser
 import pydot
 
 
@@ -74,3 +74,8 @@ def create_graph(tree, rule_names):
     add_node_and_edges(tree)
     graph.write_png('parse_tree.png')
     return graph
+
+def riconfigura_engine(file_path = "run_engine.cpp"):
+    name_length = file_path.find(".")
+    compilation = subprocess.run(["g++",file_path, "-o", file_path[:name_length] + ".exe"], capture_output=True, text=True)
+    return compilation 
