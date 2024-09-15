@@ -1,13 +1,13 @@
 import sys
 from .utils import *
 from antlr4 import *
-from .antlr_files.GramLexer import GramLexer # type: ignore
+from .antlr_files.GramLexer import GramLexer 
 from .antlr_files.GramParser import GramParser 
 from .CodeGenerator import CodeGenerator
 from .assembler import build_program
 
 
-def compile_in_assembly(FileName : str, to_build_graph = False):
+def compile_in_assembly(FileName : str, to_build_graph = True, write_assembly = True):
     input_stream = FileStream(read_from_file=True, fileName=FileName)
     lexer = GramLexer(input_stream)
     stream = CommonTokenStream(lexer)
@@ -20,6 +20,9 @@ def compile_in_assembly(FileName : str, to_build_graph = False):
         assembly = cg.generate_code(tree)
         if to_build_graph:
             create_graph(tree, parser.ruleNames)   
+    if write_assembly:
+        with open("out.qas", "w") as file:
+            file.write(assembly)
     return assembly
 
 def assemble(source_code : str):

@@ -125,15 +125,6 @@ class GramListener(ParseTreeListener):
         pass
 
 
-    # Enter a parse tree produced by GramParser#cond.
-    def enterCond(self, ctx:GramParser.CondContext):
-        pass
-
-    # Exit a parse tree produced by GramParser#cond.
-    def exitCond(self, ctx:GramParser.CondContext):
-        pass
-
-
     # Enter a parse tree produced by GramParser#doWhile.
     def enterDoWhile(self, ctx:GramParser.DoWhileContext):
         pass

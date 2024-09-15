@@ -26,7 +26,7 @@ aargs
     | expr (',' aargs)?
     ;
 
-body : stmt+;
+body : stmt*;
 stmt
     : expr ';' // REMOVE ASAP 
     | varDecl  ';'
@@ -50,13 +50,12 @@ ipAssign: ID OP_INPLACE expr
         | ID'['expr']' OP_INPLACE expr;
   
 condStat
-    : IF '(' cond ')' '{' body '}'
-    | IF '(' cond ')' '{' body '}'
+    : IF '(' expr ')' '{' body '}'
+    | IF '(' expr ')' '{' body '}'
       ELSE '{' body '}'
     ;
-cond : expr '==' expr | expr;
 doWhile
-    : DO '{' body '}' WHILE '('cond')'
+    : DO '{' body '}' WHILE '('expr')'
     ;
 
 
@@ -66,6 +65,7 @@ num : INT | FLOAT;
 
 expr: expr OP_MULTIPLICATIVE expr
     | expr OP_ADDITIVE expr
+    | expr OP_COMPARATIVE expr
     | num
     | ID
     | functionCall

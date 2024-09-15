@@ -3,7 +3,6 @@ import subprocess
 import shutil
 from antlr4 import CommonTokenStream
 from antlr4.tree.Tree import TerminalNodeImpl
-from .antlr_files.GramParser import GramParser
 import pydot
 
 
@@ -43,6 +42,8 @@ def build_grammar(path = ".\\antlr_files", main_gram = "Gram.g4",
 
 def create_graph(tree, rule_names):
     # Creiamo il grafo
+    from .antlr_files.GramParser import GramParser
+
     dot_graph = tree.toStringTree(ruleNames=rule_names, recog=tree.parser)
     
     # Inizializziamo l'oggetto pydot

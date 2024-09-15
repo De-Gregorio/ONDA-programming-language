@@ -1,7 +1,6 @@
 grammar GrammaticaLessico;
 
 EQUAL_SIGN : '=';
-DEQUAL_SIGN : '==';
 TYPE : 'int' | 'float';
 VOID : 'void';
 SEMICOLON : ';';
@@ -13,6 +12,13 @@ OP_INPLACE : '+='
      | '/='
      | '%='
      ;
+OP_COMPARATIVE : '==' 
+     | '!=' 
+     | '<' 
+     | '>'
+     | '<='
+     | '>='    
+     ; 
 IF : 'if';
 ELSE : 'else';
 DO :'do';

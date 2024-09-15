@@ -74,11 +74,6 @@ class GramVisitor(ParseTreeVisitor):
         return self.visitChildren(ctx)
 
 
-    # Visit a parse tree produced by GramParser#cond.
-    def visitCond(self, ctx:GramParser.CondContext):
-        return self.visitChildren(ctx)
-
-
     # Visit a parse tree produced by GramParser#doWhile.
     def visitDoWhile(self, ctx:GramParser.DoWhileContext):
         return self.visitChildren(ctx)

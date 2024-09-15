@@ -13,12 +13,18 @@ class PlaceHolderAssigner(GramVisitor):
     def visitFunctionImpl(self, ctx: GramParser.FunctionImplContext):
         return super().visitFunctionImpl(ctx)
     
+    def __init__(self):
+        self.reset_values()
+        
+    def reset_values(self):
+        self.last_placeholder_assigned = 0
+        self.max_placeholder = 0
+
+
     def visitBody(self, ctx: GramParser.BodyContext):
         initializer = PlaceHolderInitializer()
         initializer.visit(ctx)
         del initializer
-        self.last_placeholder_assigned = 0
-        self.max_placeholder = 0
         self.visitChildren(ctx)
         return self.max_placeholder
 
@@ -49,3 +55,8 @@ class PlaceHolderAssigner(GramVisitor):
             expr.placeholder = ctx.placeholder
         self.visitChildren(ctx)
         return 0
+    
+    def visitCondStat(self, ctx: GramParser.CondStatContext):
+        self.visitChildren(ctx)
+        return 0
+    

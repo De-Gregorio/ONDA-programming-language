@@ -43,12 +43,18 @@ class CodeGenerator(GramVisitor):
         self.sign_to_instruction = {
             "+" : "add",
             "-" : "sub",
-            "*" : "mul"
+            "*" : "mul", 
+            "==" : "feq", 
+            "<" : "flt", 
+            "!=" : "fne"
         }
         self.sign_to_rinstruction = {
             "+" : "sub",
             "-" : "add",
-            "*" : "mul"
+            "*" : "mul", 
+            "==" : "feq", 
+            "<" : "flt", 
+            "!=" : "fne"   
         }
 
     def generate_code(self, tree):
@@ -106,7 +112,9 @@ class CodeGenerator(GramVisitor):
         self.blocks_info[F_ID]["ENTRY_LINE"] = self.output.current_line + 1
         if ctx.body():
             self.output += "swre $u, $tur\n"
+            self.pha.reset_values()
             temporaries_needed = self.pha.visit(ctx.body()) 
+            print("temp needed ", temporaries_needed)
             self.blocks_info[F_ID]["TEMPORARIES_NEEDED"] = temporaries_needed
             if temporaries_needed != 0:
                 self.output += "addi $sp, -" + str(temporaries_needed) + "\n"
@@ -216,18 +224,18 @@ class CodeGenerator(GramVisitor):
     def load_copy_aarg(self, ctx: GramParser.AargsContext, farg, sp_offset):
         if ctx.ID():
             fp_offset = self.enviroment[ctx.ID().getText()]
-            self.output += "sw $t1, " + fp_offset + "($fp)\n"
-            self.output += "add $a0, $t1"
-            self.output += "sw $a0, " + sp_offset + "($sp)\n" 
-            self.output += "sw $t1, " + fp_offset + "($fp)\n"
+            self.output += "sw $t1, " + str(fp_offset) + "($fp)\n"
+            self.output += "add $a0, $t1\n"
+            self.output += "sw $a0, " + str(sp_offset) + "($sp)\n" 
+            self.output += "sw $t1, " + str(fp_offset) + "($fp)\n"
             sp_offset -= 1
             if farg["ARR_SIZE"] != 0:
                 for i in range(1, farg["ARR_SIZE"]):
                     fp_offset -= 1
-                    self.output += "sw $t1, " + fp_offset + "($fp)\n"
+                    self.output += "sw $t1, " + str(fp_offset) + "($fp)\n"
                     self.output += "add $a0, $t1"
-                    self.output += "sw $a0, " + sp_offset + "($sp)\n" 
-                    self.output += "sw $t1, " + fp_offset + "($fp)\n"
+                    self.output += "sw $a0, " + str(sp_offset) + "($sp)\n" 
+                    self.output += "sw $t1, " + str(fp_offset) + "($fp)\n"
                     sp_offset -= 1
         elif ctx.num():
             self.visit(ctx.num()) # not really a copy but it's ok
@@ -236,7 +244,7 @@ class CodeGenerator(GramVisitor):
         elif ctx.expr():
             self.visit(ctx.expr())
             self.output += "add $t1, $a0\n"
-            self.output += "sw $t1, " + sp_offset + "($sp)\n" 
+            self.output += "sw $t1, " + str(sp_offset) + "($sp)\n" 
             self.output += "sw $a0, -" + str(ctx.expr().placeholder) + "($fp)\n"
             self.rvisitExpr(ctx.expr())
             sp_offset -= 1 
@@ -247,7 +255,6 @@ class CodeGenerator(GramVisitor):
         ctx = ctx.aargs()
         sp_offset = -1
         for farg in fargs:
-            farg = fargs
             if True: # if passed in copy mode
                 sp_offset = self.clean_copy_aarg(ctx, farg, sp_offset)
                 ctx = ctx.aargs()
@@ -336,8 +343,11 @@ class CodeGenerator(GramVisitor):
             self.output += inst + " $a0, $t1\n"
             self.output += "sw $t1, " + str(offset) + "($fp)\n"
             return 0
-        if ctx.OP_MULTIPLICATIVE(): # expr OP_MULTIPLICATIVE expr
-            op = ctx.OP_MULTIPLICATIVE().getText()
+        if ctx.OP_MULTIPLICATIVE() or ctx.OP_COMPARATIVE(): # expr OP_MULTIPLICATIVE/ expr
+            op = ctx.OP_MULTIPLICATIVE().getText() if ctx.OP_MULTIPLICATIVE() else \
+                 ctx.OP_COMPARATIVE().getText()
+            if op in ['>', '<=', '>=']:
+                raise NameError("operator", op, "not implemented yet")
             inst = self.sign_to_instruction[op]
             expr1, expr2 = ctx.expr()
             self.visit(expr1)
@@ -378,27 +388,6 @@ class CodeGenerator(GramVisitor):
             self.visit(ctx.expr(0))
             return 
         return 0
-        if ctx.getChildCount() == 4: # case ID '[' expr ']'
-            offset = self.get_ID_offset(ctx.getChild(0))
-            self.output += "li $a0, " + str(offset) + "\n"
-            self.output += "addiu $sp, $sp, -4\n"
-            self.output += "sw $a0, 4($sp)\n"
-            self.visit(ctx.getChild(2))
-            self.output += "lw $t1, 4($sp)\n"
-            self.output += "addiu $t2, t1, $a0\n"
-            self.output += "lw $a0, ($t2)($fp)\n"
-            self.output += "addiu $sp, $sp, 4\n"
-        elif ctx.getChildCount() == 3:
-            if ctx.getChild(0).getText() == "(": # case '(' expr ')'
-                self.visit(ctx.getChild(1))
-                return 0
-        elif ctx.getChildCount() == 1: # case NUM / ID
-            if type(ctx.getChild(0)) == TerminalNodeImpl: # ID
-                self.get_ID_value(ctx.getChild(0))
-            else: # NUM
-                self.visit(ctx.getChild(0))
-
-        return 0
 
     def rvisitExpr(self, ctx:GramParser.ExprContext):
         """
@@ -419,8 +408,9 @@ class CodeGenerator(GramVisitor):
             self.output += "sw $t1, " + str(offset1) + "($fp)\n"
             self.rvisitExpr(expr1)
             self.rvisitExpr(expr2)
-        if ctx.OP_MULTIPLICATIVE(): # expr OP_MULTIPLICAIVE expr
-            op = ctx.OP_MULTIPLICATIVE().getText()
+        if ctx.OP_MULTIPLICATIVE() or ctx.OP_COMPARATIVE(): # expr OP_MULTIPLICATIVE/COMPARATIVE expr
+            op = ctx.OP_MULTIPLICATIVE().getText() if ctx.OP_MULTIPLICATIVE() else \
+                 ctx.OP_COMPARATIVE().getText()
             inst = self.sign_to_rinstruction[op]
             expr1, expr2 = ctx.expr()
             offset0 = -ctx.placeholder
@@ -585,27 +575,12 @@ class CodeGenerator(GramVisitor):
                 self.output += "sw $a0, " + str(-ctx.expr(0).placeholder) + "($fp)\n"
                 self.rvisitExpr(ctx.expr(0))
         return 0
-
-    def visitCond(self, ctx: GramParser.CondContext):
-        if len(ctx.expr()) == 2: # expr == expr
-            self.visit(ctx.expr(0))
-            self.output += "sw $a0, " + str(-ctx.expr(0).placeholder) + "($fp)\n"
-            self.visit(ctx.expr(1))            
-            self.output += "swre $t1, $a0\n"
-            self.output += "sw $t0, " + str(-ctx.expr(0).placeholder) + "($fp)\n"
-            self.output += "feq $a0, $t0, $t1\n"
-            self.output += "sw $t0, " + str(-ctx.expr(0).placeholder) + "($fp)\n"
-            self.output += "sw $t1, " + str(-ctx.expr(1).placeholder) + "($fp)\n"
-            self.rvisitExpr(ctx.expr(0))
-            self.rvisitExpr(ctx.expr(1))
-        else: # expr 
-            self.visit(ctx.expr(0))
-        return 0
     
     def visitCondStat(self, ctx: GramParser.CondStatContext):
-        self.visit(ctx.cond())
+        self.visit(ctx.expr()) # condition
         self.current_block_id += 1
         self.blocks_info[self.current_block_id] = {} 
+        self.output += f"flip $a0\n"
         self.output += f"caddi $a0, $u, #{self.current_block_id}@LENGTH\n"
         self.blocks_info[self.current_block_id]["ENTRY_LINE"] = self.output.current_line + 1 
         self.save_in_stack("$a0") 
@@ -615,6 +590,7 @@ class CodeGenerator(GramVisitor):
                         self.blocks_info[self.current_block_id]["ENTRY_LINE"] 
             
         self.output += f"caddi $a0, $u, -#{self.current_block_id}@LENGTH\n"
+        self.output += f"flip $a0\n"
         if ctx.ELSE():
             self.current_block_id += 1
             self.blocks_info[self.current_block_id] = {} 
