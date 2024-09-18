@@ -13,8 +13,17 @@ from .SemanticChecker import SemanticChecker
 # ___tell the engine the entry point of the program
 # ___return a value
 # ___assignment
-# ifCond
+# ___ifCond
 # doWhile
+# most of the vars will be in the registers (caller saved), the vars that needs to be accesed by 
+# the user to reverse the computation will be simple variables. The user will br able to implement 
+# two body, one normal, and the other that will be executed only at the end of the doWhile loop. If 
+# the second body is not implemented, than the arguments will be thrown away
+# 
+# problem: the variable gets added in the enviroment also if the if branch in which they are
+# declared is not executed 
+# problem: the return uses a function length variable, however if more return are used, then the 
+# function length definition is ambigous
 # high level way to access garbage
 class IncreadiblyCapableString():
     "this object just count at which line you are at the moment"
@@ -38,7 +47,7 @@ class IncreadiblyCapableString():
         return self
         
 
-class CodeGenerator(GramVisitor):
+class CodeGenerator(GramVisitor):    
     def __init__(self):
         self.sign_to_instruction = {
             "+" : "add",
@@ -59,7 +68,7 @@ class CodeGenerator(GramVisitor):
 
     def generate_code(self, tree):
         self.output = IncreadiblyCapableString(debug=True)
-        self.enviroment = {}
+        self.enviroment = {"ACCESABLE" : {}, "INACCESABLE" : {}}
         self.vars_sizes = {}
         self.current_block_id = 0
         self.fp_offset = 0 
@@ -89,7 +98,8 @@ class CodeGenerator(GramVisitor):
         F_ID = ctx.ID().getText()
         self.current_F_ID = F_ID
         fargs = self.functions_fargs[ctx.ID().getText()]
-        old_env = self.enviroment.copy()
+        old_env = {"ACCESABLE" : self.enviroment["ACCESABLE"].copy(), 
+                   "INACCESABLE" : self.enviroment["INACCESABLE"].copy()}
         old_fp_offset = self.fp_offset
 
         # STACK COMPOSITION AT CALL
@@ -104,7 +114,7 @@ class CodeGenerator(GramVisitor):
         self.fp_offset = fargs_size
 
         for farg in fargs:
-            self.enviroment[farg["ID"]] = self.fp_offset
+            self.enviroment["ACCESABLE"][farg["ID"]] = self.fp_offset
             self.vars_sizes[farg["ID"]] = 1 if farg["ARR_SIZE"] == 0 else farg["ARR_SIZE"]
             self.fp_offset -= 1 if farg["ARR_SIZE"] == 0 else farg["ARR_SIZE"]
 
@@ -148,7 +158,8 @@ class CodeGenerator(GramVisitor):
         # tur -= c_pc - f_pc - fun_len + 1
         self.output += f"subi $tur, {self.output.current_line+1}\n" # - fp_pc - fun_len 
         self.output += f"addi $tur, #{F_ID}@ENTRY_LINE\n"           # - fun_len 
-        self.output += f"addi $tur, #{F_ID}@LENGTH\n"               # 0
+        self.output += f"add $tur, $v1\n"               # 0
+        self.output += f"ta $v1\n"
         self.output += "sw $tur, $fp\n"
         # CLEAN AR
         self.output += "addi $sp, 1\n"
@@ -184,20 +195,28 @@ class CodeGenerator(GramVisitor):
             self.output += "eop\n"
             return 0
         self.output += "neg $tur\n"
-        self.output += f"subi $tur, #{self.current_F_ID}@LENGTH\n"
+        self.output += f"addi $v1, #{self.current_F_ID}@DISTANCE_TO_{self.output.current_line+4}\n"
+        self.output += f"subi $tur, #{self.current_F_ID}@DISTANCE_TO_{self.output.current_line+3}\n"
         self.output += "addi $tur, 1\n"
         self.output += "swre $u, $tur\n"
+        self.blocks_info[self.current_F_ID]["ENTRY_LINE"]
         self.output += f"# end return of {self.current_F_ID}\n"
         return 0
  
     def clean_local_vars(self):
-        locals_vars = [V_ID for V_ID in self.enviroment.keys() if self.enviroment[V_ID] < 0]
-        if len(locals_vars) == 0:
-            return 
-        first_var = locals_vars[0]
-        last_var = locals_vars[-1]
-        last_offset=  self.enviroment[last_var] - self.vars_sizes[last_var] + 1
-        first_offset = self.enviroment[first_var]
+        env_a = self.enviroment["ACCESABLE"]
+        env_ia = self.enviroment["INACCESABLE"]
+        combined_env = {**env_a, **env_ia}
+        combined_env = {V_ID : combined_env[V_ID] for V_ID in combined_env if combined_env[V_ID] < 0}
+        f_off_V_ID = max(combined_env, key = combined_env.get) \
+                    if len(combined_env) > 0 else None
+        l_off_V_ID = min(combined_env, key = combined_env.get) \
+                    if len(combined_env) > 0 else None 
+        if f_off_V_ID is None:
+            return # nothing to clean  
+        last_offset = combined_env[l_off_V_ID] - self.vars_sizes[l_off_V_ID] + 1
+        first_offset = combined_env[f_off_V_ID]
+
         self.output += "addi $sp, " + str(first_offset-last_offset + 1) + "\n"
         while last_offset != (first_offset + 1):
             self.output += "sw $a0, " + str(last_offset) + "($fp)\n"
@@ -223,7 +242,7 @@ class CodeGenerator(GramVisitor):
 
     def load_copy_aarg(self, ctx: GramParser.AargsContext, farg, sp_offset):
         if ctx.ID():
-            fp_offset = self.enviroment[ctx.ID().getText()]
+            fp_offset = self.enviroment["ACCESABLE"][ctx.ID().getText()]
             self.output += "sw $t1, " + str(fp_offset) + "($fp)\n"
             self.output += "add $a0, $t1\n"
             self.output += "sw $a0, " + str(sp_offset) + "($sp)\n" 
@@ -299,16 +318,16 @@ class CodeGenerator(GramVisitor):
     def visitVarDecl(self, ctx:GramParser.VarDeclContext):
         ID = ctx.ID().getText()
         self.vars_sizes[ID] = 1
-        if ID in self.enviroment.keys(): # to remove since MemoryCalculator already does this check
+        if ID in self.enviroment["ACCESABLE"].keys(): # to remove since MemoryCalculator already does this check
             raise NameError(f"redeclaration of {ID} isn't allowed") 
         if ctx.getChildCount() == 2: # TYPE ID
             self.output += "addi $sp, -1\n"
             self.fp_offset -= 1
-            self.enviroment[ID] = self.fp_offset
+            self.enviroment["ACCESABLE"][ID] = self.fp_offset
         elif ctx.EQUAL_SIGN(): # TYPE ID = expr
             self.output += "addi $sp, -1\n"
             self.fp_offset -= 1
-            self.enviroment[ID] = self.fp_offset
+            self.enviroment["ACCESABLE"][ID] = self.fp_offset
             self.visit(ctx.expr())
             self.output += "add $t1, $a0\n" # copy a0 in t1
             self.output += "sw $t1, 1($sp)\n" # save the value in the ID var
@@ -320,7 +339,7 @@ class CodeGenerator(GramVisitor):
             self.vars_sizes[ID] = arr_size
             self.output += "addi $sp, -" + str(arr_size) + "\n"   
             self.fp_offset -= 1
-            self.enviroment[ID] = self.fp_offset
+            self.enviroment["ACCESABLE"][ID] = self.fp_offset
             self.fp_offset -= (arr_size - 1) 
         else:
             Warning("uknown declaration: ", ctx.getText())
@@ -364,7 +383,7 @@ class CodeGenerator(GramVisitor):
             self.visit(ctx.num())
             return 0
         if ctx.ID() and (not ctx.OPENSQUARE()): # ID
-            fp_offset = self.enviroment[ctx.ID().getText()]
+            fp_offset = self.enviroment["ACCESABLE"][ctx.ID().getText()]
             self.output += "sw $t1, " + str(fp_offset) + "($fp)\n"
             self.output += "add $a0, $t1\n"
             self.output += "sw $t1, " + str(fp_offset) + "($fp)\n"
@@ -374,7 +393,7 @@ class CodeGenerator(GramVisitor):
             self.output += "swre $a0, $v0\n"
             self.output += "# end functionCall\n"
         if ctx.OPENSQUARE(): # ID '[' expr ']'
-            var_offset = self.enviroment[ctx.ID().getText()]
+            var_offset = self.enviroment["ACCESABLE"][ctx.ID().getText()]
             self.visit(ctx.expr(0)) 
             self.output += "swre $a0, $t0\n" # t0 = offset, a0 = 0
             # self.output += "sw $t1, (-$t0+var_offset)($fp)"
@@ -441,7 +460,7 @@ class CodeGenerator(GramVisitor):
                 self.output += "sw $a0, " + str(expr_offset) + "($fp)\n"    
                 self.output += "ta $a0\n"
                 pass
-            fp_offset = self.enviroment[ctx.ID().getText()]
+            fp_offset = self.enviroment["ACCESABLE"][ctx.ID().getText()]
             expr_offset = -ctx.placeholder
             self.output += "sw $t1, " + str(fp_offset) + "($fp)\n"
             self.output += "sw $a0, " + str(expr_offset) + "($fp)\n"
@@ -453,9 +472,11 @@ class CodeGenerator(GramVisitor):
             # the expr placeholder is already 0 and there 
             # are no other reverse action to perform
         if ctx.functionCall(): # functionCall
-            pass
+            expr_offset = -ctx.placeholder
+            self.output += "sw $a0, " + str(expr_offset) + "($fp)\n"
+            self.output += "ta $a0\n"
         if ctx.OPENSQUARE(): # ID '[' expr ']'
-            var_offset = self.enviroment[ctx.ID().getText()]
+            var_offset = self.enviroment["ACCESABLE"][ctx.ID().getText()]
             self.output += "sw $t0, " + str(-ctx.expr(0).placeholder) + "($fp)\n"
             self.output += "sw $a0, " + str(-ctx.placeholder) + "($fp)\n"
             # self.output += "sw t1, (-$t0+var_offset)($fp)"
@@ -472,7 +493,7 @@ class CodeGenerator(GramVisitor):
 
     def visitReAssign(self, ctx: GramParser.ReAssignContext):
         V_ID = ctx.ID().getText()
-        var_offset = self.enviroment[V_ID]
+        var_offset = self.enviroment["ACCESABLE"][V_ID]
         self.assigning_variable["ID"] = V_ID
         if ctx.OPENSQUARE(): # ID '[' expr ']' = expr
             # a[a[0]] = a[0] + 1;
@@ -506,7 +527,7 @@ class CodeGenerator(GramVisitor):
     def visitIpAssign(self, ctx: GramParser.IpAssignContext):
         op = ctx.OP_INPLACE().getText()[0]
         inst = self.sign_to_instruction[op] 
-        var_offset = self.enviroment[ctx.ID().getText()]
+        var_offset = self.enviroment["ACCESABLE"][ctx.ID().getText()]
 
         if ctx.to_substitute:
             if ctx.OPENSQUARE(): # # ID '[' expr ']' OP_INPLACE expr
@@ -579,13 +600,15 @@ class CodeGenerator(GramVisitor):
     def visitCondStat(self, ctx: GramParser.CondStatContext):
         self.visit(ctx.expr()) # condition
         self.current_block_id += 1
+        if_id = self.current_block_id
         self.blocks_info[self.current_block_id] = {} 
+        self.declare("INACCESABLE", "_if_cond"+str(self.current_block_id))
         self.output += f"flip $a0\n"
         self.output += f"caddi $a0, $u, #{self.current_block_id}@LENGTH\n"
         self.blocks_info[self.current_block_id]["ENTRY_LINE"] = self.output.current_line + 1 
-        self.save_in_stack("$a0") 
+        self.swap_var_in("$a0", "INACCESABLE", "_if_cond"+str(self.current_block_id))
         self.visit(ctx.body(0))
-        self.load_from_stack("$a0")
+        self.swap_var_in("$a0", "INACCESABLE", "_if_cond"+str(self.current_block_id))
         self.blocks_info[self.current_block_id]["LENGTH"] = (self.output.current_line + 1) -\
                         self.blocks_info[self.current_block_id]["ENTRY_LINE"] 
             
@@ -596,16 +619,25 @@ class CodeGenerator(GramVisitor):
             self.blocks_info[self.current_block_id] = {} 
             self.output += f"caddi $a0, $u, #{self.current_block_id}@LENGTH\n"
             self.blocks_info[self.current_block_id]["ENTRY_LINE"] = self.output.current_line + 1 
-            self.save_in_stack("$a0") 
+            print(self.current_block_id)
+            self.swap_var_in("$a0", "INACCESABLE", "_if_cond"+str(if_id))
             self.visit(ctx.body(1))
-            self.load_from_stack("$a0")
+            self.swap_var_in("$a0", "INACCESABLE", "_if_cond"+str(if_id))            
             self.blocks_info[self.current_block_id]["LENGTH"] = (self.output.current_line + 1) -\
                         self.blocks_info[self.current_block_id]["ENTRY_LINE"] 
             self.output += f"caddi $a0, $u, -#{self.current_block_id}@LENGTH\n"
-        self.output += "ta $a0\n"
+        self.swap_var_in("$a0", "INACCESABLE", "_if_cond"+str(if_id))
 
+    def visitDoWhile(self, ctx: GramParser.DoWhileContext):
+        
+        return 0
+    
     def visitPrint(self, ctx: GramParser.PrintContext):
-        self.visit(ctx.expr())
+        if ctx.expr().getText() == "33":
+            self.output += "outr 31\n"
+            return
+        else:
+            self.visit(ctx.expr())
         self.output += "outr $a0\n"
         self.output += "sw $a0, -" + str(ctx.expr().placeholder) + "($fp)\n"
         self.rvisitExpr(ctx.expr())
@@ -618,6 +650,19 @@ class CodeGenerator(GramVisitor):
             Warning("float literal not implemented yet, no code generated")
         return 0
     
+    def declare(self, privacy, name, size = 1, initial_value_in_register = None):
+        self.vars_sizes[name] = size
+        if initial_value_in_register is not None:
+            self.save_in_stack(initial_value_in_register) 
+        else: 
+            self.output += "addi $sp, -1\n"
+        self.fp_offset -= 1
+        self.enviroment[privacy][name] = self.fp_offset
+
+    def swap_var_in(self, register, privacy, name):
+        fp_offset = self.enviroment[privacy][name]
+        self.output += "sw " + register + ", " +  str(fp_offset) + "($fp)\n"
+
     def visitTerminal(self, node):
         return 0
         symbol = node.getSymbol()
@@ -647,3 +692,14 @@ class CodeGenerator(GramVisitor):
             F_ID = str(F_ID)
             self.output.value = self.output.value.replace("#"+F_ID+"@ENTRY_LINE", ENTRY_LINE)
             self.output.value = self.output.value.replace("#"+F_ID+"@LENGTH", LENGTH)
+            while self.output.value.find("#"+F_ID+"@DISTANCE_TO_") != -1:
+                i = self.output.value.find("#" + F_ID + "@DISTANCE_TO_")
+                i  += len("#" + F_ID + "@DISTANCE_TO_")
+                num = ""
+                while self.output.value[i] not in ["\t", "\n"]:
+                    num += self.output.value[i]
+                    i += 1
+                LENGTH_TO = str(int(num) - int(ENTRY_LINE) + 1)
+                print("#"+F_ID+"@DISTANCE_TO_"+num in self.output.value)
+                self.output.value = \
+                    self.output.value.replace("#"+F_ID+"@DISTANCE_TO_"+num, LENGTH_TO)
