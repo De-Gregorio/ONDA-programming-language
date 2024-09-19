@@ -412,11 +412,12 @@ private:
     {
         T src;
         src = one_inp<N, 5>(program_memory);
+        cerr << pc << endl;
         if(src == 31){
             for(int i = 0; i < reg_size; i++)
                 if(i == 29 || i == 30){
                     cerr<< "R[" << i << "] = " << registers[i] - mem_size << '\t' 
-                    << "MEM[" << -i << "] = " << memory[mem_size-1-i] << '\t' 
+                    << "MEM[" << -i-1 << "] = " << memory[mem_size-1-i] << '\t' 
                     << "GAR[" << i << "] = " << garbage[i] << endl;
                 }else{
                     cerr<< "R[" << i << "] = " << registers[i] << '\t' 
@@ -503,11 +504,13 @@ public:
         do
         {
             iteration++;
+            // if(registers[1] != 1){
+            //     cerr << pc << " jump to " << pc + registers[1] << endl;
+            // }
             pc += registers[1];
             for(int i = 0; i < n_bit_opcode; i ++) 
                 opcode[i] = program_memory[(pc*32)+n_bit_opcode-i-1];
             // cerr<< " " << opcode << " " << endl;
-            cerr<< pc << endl; 
             // transform this in a switch case
             if(opcode == 0) {add(program_memory);  continue;}
             if(opcode == 1) {addi(program_memory); continue;}

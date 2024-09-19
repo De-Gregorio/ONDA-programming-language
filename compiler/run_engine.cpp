@@ -2,7 +2,7 @@
 #include <bitset>
 #include <string>
 #include "q_engine.h"
-#define N 300
+#define N 500
 using namespace std;
 
 int main(int argc, char* argv[])

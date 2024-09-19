@@ -50,14 +50,15 @@ ipAssign: ID OP_INPLACE expr
         | ID'['expr']' OP_INPLACE expr;
   
 condStat
-    : IF '(' expr ')' '{' body '}'
-    | IF '(' expr ')' '{' body '}'
-      ELSE '{' body '}'
+    : IF '(' expr ')' '{' body '}' reversingBody?
+    | IF '(' expr ')' '{' body '}' reversingBody?
+      ELSE '{' body '}' reversingBody?
     ;
 doWhile
-    : DO '{' body '}' WHILE '('expr')'
+    : DO '{' body '}' reversingBody? WHILE '('expr')'
     ;
 
+reversingBody : '{'body'}';
 
 returnStmt : RETURN expr?;
 

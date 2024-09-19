@@ -22,8 +22,6 @@ from .SemanticChecker import SemanticChecker
 # 
 # problem: the variable gets added in the enviroment also if the if branch in which they are
 # declared is not executed 
-# problem: the return uses a function length variable, however if more return are used, then the 
-# function length definition is ambigous
 # high level way to access garbage
 class IncreadiblyCapableString():
     "this object just count at which line you are at the moment"
@@ -121,7 +119,7 @@ class CodeGenerator(GramVisitor):
         self.blocks_info[F_ID] = {}
         self.blocks_info[F_ID]["ENTRY_LINE"] = self.output.current_line + 1
         if ctx.body():
-            self.output += "swre $u, $tur\n"
+            self.output += "swre $u, $tur1\n"
             self.pha.reset_values()
             temporaries_needed = self.pha.visit(ctx.body()) 
             print("temp needed ", temporaries_needed)
@@ -151,16 +149,16 @@ class CodeGenerator(GramVisitor):
         self.output += "add $fp, $sp\n"
         self.output += "addi $sp, -1\n" 
         # JUMP TO FUNCTION BODY
-        self.output += "sw $tur, $fp\n"
-        self.output += f"addi $tur, #{F_ID}@ENTRY_LINE\n" 
-        self.output += f"subi $tur, {self.output.current_line + 2}\n" 
-        self.output += f"swre $tur, $u\n" # actual jump (that line is the c_pc)
+        self.output += "sw $tur1, $fp\n"
+        self.output += f"addi $tur1, #{F_ID}@ENTRY_LINE\n" 
+        self.output += f"subi $tur1, {self.output.current_line + 2}\n" 
+        self.output += f"swre $tur1, $u\n" # actual jump (that line is the c_pc)
         # tur -= c_pc - f_pc - fun_len + 1
-        self.output += f"subi $tur, {self.output.current_line+1}\n" # - fp_pc - fun_len 
-        self.output += f"addi $tur, #{F_ID}@ENTRY_LINE\n"           # - fun_len 
-        self.output += f"add $tur, $v1\n"               # 0
+        self.output += f"subi $tur1, {self.output.current_line+1}\n" # - fp_pc - fun_len 
+        self.output += f"addi $tur1, #{F_ID}@ENTRY_LINE\n"           # - fun_len 
+        self.output += f"add $tur1, $v1\n"               # 0
         self.output += f"ta $v1\n"
-        self.output += "sw $tur, $fp\n"
+        self.output += "sw $tur1, $fp\n"
         # CLEAN AR
         self.output += "addi $sp, 1\n"
         self.output += "sub $fp, $sp\n"
@@ -194,11 +192,11 @@ class CodeGenerator(GramVisitor):
         if self.current_F_ID == "main":
             self.output += "eop\n"
             return 0
-        self.output += "neg $tur\n"
+        self.output += "neg $tur1\n"
         self.output += f"addi $v1, #{self.current_F_ID}@DISTANCE_TO_{self.output.current_line+4}\n"
-        self.output += f"subi $tur, #{self.current_F_ID}@DISTANCE_TO_{self.output.current_line+3}\n"
-        self.output += "addi $tur, 1\n"
-        self.output += "swre $u, $tur\n"
+        self.output += f"subi $tur1, #{self.current_F_ID}@DISTANCE_TO_{self.output.current_line+3}\n"
+        self.output += "addi $tur1, 1\n"
+        self.output += "swre $u, $tur1\n"
         self.blocks_info[self.current_F_ID]["ENTRY_LINE"]
         self.output += f"# end return of {self.current_F_ID}\n"
         return 0
@@ -599,37 +597,125 @@ class CodeGenerator(GramVisitor):
     
     def visitCondStat(self, ctx: GramParser.CondStatContext):
         self.visit(ctx.expr()) # condition
+        self.output += "add $t0, $a0\n"
+        self.output += "sw $a0, " + str(-ctx.expr().placeholder) + "($fp)\n"
+        self.rvisitExpr(ctx.expr())
+        self.output += "swre $t0, $a0\n"
         self.current_block_id += 1
-        if_id = self.current_block_id
-        self.blocks_info[self.current_block_id] = {} 
-        self.declare("INACCESABLE", "_if_cond"+str(self.current_block_id))
+        if_id = str(self.current_block_id)
+        self.blocks_info[if_id] = {} 
+        self.declare("INACCESABLE", "_if_cond"+if_id)
         self.output += f"flip $a0\n"
-        self.output += f"caddi $a0, $u, #{self.current_block_id}@LENGTH\n"
-        self.blocks_info[self.current_block_id]["ENTRY_LINE"] = self.output.current_line + 1 
-        self.swap_var_in("$a0", "INACCESABLE", "_if_cond"+str(self.current_block_id))
+        self.output += f"caddi $a0, $u, #{if_id}@LENGTH\n"
+        self.blocks_info[if_id]["ENTRY_LINE"] = self.output.current_line + 1 
+        self.swap_var_in("$a0", "INACCESABLE", "_if_cond"+if_id)
         self.visit(ctx.body(0))
-        self.swap_var_in("$a0", "INACCESABLE", "_if_cond"+str(self.current_block_id))
-        self.blocks_info[self.current_block_id]["LENGTH"] = (self.output.current_line + 1) -\
-                        self.blocks_info[self.current_block_id]["ENTRY_LINE"] 
+        self.swap_var_in("$a0", "INACCESABLE", "_if_cond"+if_id)
+        self.blocks_info[if_id]["LENGTH"] = (self.output.current_line + 1) -\
+                        self.blocks_info[if_id]["ENTRY_LINE"] 
             
-        self.output += f"caddi $a0, $u, -#{self.current_block_id}@LENGTH\n"
+        self.output += f"caddi $a0, $u, -#{if_id}@LENGTH\n"
         self.output += f"flip $a0\n"
         if ctx.ELSE():
             self.current_block_id += 1
-            self.blocks_info[self.current_block_id] = {} 
-            self.output += f"caddi $a0, $u, #{self.current_block_id}@LENGTH\n"
-            self.blocks_info[self.current_block_id]["ENTRY_LINE"] = self.output.current_line + 1 
-            print(self.current_block_id)
-            self.swap_var_in("$a0", "INACCESABLE", "_if_cond"+str(if_id))
+            else_id = str(self.current_block_id)
+            self.blocks_info[else_id] = {} 
+            self.output += f"caddi $a0, $u, #{else_id}@LENGTH\n"
+            self.blocks_info[else_id]["ENTRY_LINE"] = self.output.current_line + 1 
+            self.swap_var_in("$a0", "INACCESABLE", "_if_cond"+if_id)
             self.visit(ctx.body(1))
             self.swap_var_in("$a0", "INACCESABLE", "_if_cond"+str(if_id))            
-            self.blocks_info[self.current_block_id]["LENGTH"] = (self.output.current_line + 1) -\
-                        self.blocks_info[self.current_block_id]["ENTRY_LINE"] 
-            self.output += f"caddi $a0, $u, -#{self.current_block_id}@LENGTH\n"
-        self.swap_var_in("$a0", "INACCESABLE", "_if_cond"+str(if_id))
+            self.blocks_info[else_id]["LENGTH"] = (self.output.current_line + 1) -\
+                        self.blocks_info[else_id]["ENTRY_LINE"] 
+            self.output += f"caddi $a0, $u, -#{else_id}@LENGTH\n"
+        self.output += "ta $a0\n"
+        del self.enviroment["INACCESABLE"]["_if_cond"+if_id]
+        self.output += "addi $sp, 1\n"
 
     def visitDoWhile(self, ctx: GramParser.DoWhileContext):
+        self.current_block_id += 1
+        loop_block_id = str(self.current_block_id) 
+        self.blocks_info[loop_block_id] = {}
+        self.declare("INACCESABLE", "oldTur1Save"+loop_block_id)
+        self.declare("INACCESABLE", "oldTur2Save"+loop_block_id)
+        self.declare("INACCESABLE", "counter"+loop_block_id)
+        self.declare("INACCESABLE", "activationTcsu"+loop_block_id)
+        self.declare("INACCESABLE", "innerCondition"+loop_block_id)
+        print("env in for: ", self.enviroment)
+
+        self.swap_var_in("$tur1", "INACCESABLE", "oldTur1Save"+loop_block_id) # save the old turs and
+        self.swap_var_in("$tur2", "INACCESABLE", "oldTur2Save"+loop_block_id) # load new ones
+        # setup
+     
+        # you don't need to save tur1 or tur2 in the expr, because the only stmt that 
+        # uses them is the functionCall that save and restore the old tur
+
+        self.visit(ctx.expr())
+        self.output += "addi $tur1, 1\n"
+        self.output += f"addi $tur2, -#{loop_block_id}@LENGTH\n"
+        self.blocks_info[loop_block_id]["ENTRY_LINE"] = self.output.current_line + 1
+        self.output += "tcsu $tur1, $tur2, $t0, $t1\n"
+        # tcai
+        self.output += "rebi $t2, $t1, 0\n"
+        self.output += f"caddi $t2, $tur1, #{loop_block_id}@LENGTH#1\n" # REMEMBER TO ADD THIS TO THE REPLACE LABEL FUNCTION
+        self.output += "flip $t2\n"
+        self.output += f"caddi $t2, $tur2 #{loop_block_id}@LENGTH#1\n"
+        self.output += "flip $t2\n"
+        self.output += "rebi $t2, $t1, 0\n"
+
+        # set tur1 = 0
+        self.output += "feq $t2, $t1, $zero\n"
+        self.output += "caddi $t2, $tur1, -1\n"
+        self.output += "feq $t2, $t1, $zero\n"
         
+        # caller save
+        self.swap_var_in("$tur1", "INACCESABLE", "oldTur1Save"+loop_block_id) 
+        self.swap_var_in("$tur2", "INACCESABLE", "oldTur2Save"+loop_block_id)
+        self.swap_var_in("$t0", "INACCESABLE", "activationTcsu"+loop_block_id)
+        self.swap_var_in("$t1", "INACCESABLE", "counter"+loop_block_id)
+        self.swap_var_in("$t2", "INACCESABLE", "innerCondition"+loop_block_id)
+        self.output += "sw $a0, " + str(-ctx.expr().placeholder) + "($fp)\n"
+        self.rvisitExpr(ctx.expr()) 
+        self.visit(ctx.body())
+        self.visit(ctx.expr())
+        self.swap_var_in("$tur1", "INACCESABLE", "oldTur1Save"+loop_block_id)
+        self.swap_var_in("$tur2", "INACCESABLE", "oldTur2Save"+loop_block_id)
+        self.swap_var_in("$t0", "INACCESABLE", "activationTcsu"+loop_block_id)
+        self.swap_var_in("$t1", "INACCESABLE", "counter"+loop_block_id)
+        self.swap_var_in("$t2", "INACCESABLE", "innerCondition"+loop_block_id)
+
+        self.output += "addi $t1, 1\n"
+        self.output += f"caddi $a0, $u, -#{loop_block_id}@LENGTH#1\n"
+        self.blocks_info[loop_block_id]["LENGTH"] = self.output.current_line -\
+                                                    self.blocks_info[loop_block_id]["ENTRY_LINE"]
+        self.output += "sw $a0, " + str(-ctx.expr().placeholder) + "($fp)\n"
+        self.rvisitExpr(ctx.expr())
+        # reversing
+        self.output += "rebi $t2, $t1, 0\n"
+        self.output += "caddi $t2, $tur2, -1\n"
+        self.output += "flip $t2\n"
+        self.output += "caddi $t2, $tur1, -1\n"
+        self.output += "flip $t2\n"
+        self.output += "rebi $t2, $t1, 0\n"
+        
+        self.output += "flip $t0\n"
+        self.swap_var_in("$tur1", "INACCESABLE", "oldTur1Save"+loop_block_id)
+        self.swap_var_in("$tur2", "INACCESABLE", "oldTur2Save"+loop_block_id)
+        if ctx.reversingBody():
+            self.visit(ctx.reversingBody()) # make counter accesable
+        else:
+            self.output += "ta $t1\n"
+            del self.enviroment["INACCESABLE"]["counter"+loop_block_id]
+            self.output += "addi $sp, 1\n"
+            self.fp_offset += 1
+        
+        del self.enviroment["INACCESABLE"]["oldTur1Save"+loop_block_id]
+        del self.enviroment["INACCESABLE"]["oldTur2Save"+loop_block_id]
+        del self.enviroment["INACCESABLE"]["activationTcsu"+loop_block_id]
+        del self.enviroment["INACCESABLE"]["innerCondition"+loop_block_id]
+        self.output += "addi $sp, 4\n"
+        self.fp_offset += 4
+        print("env out of for", self.enviroment)
         return 0
     
     def visitPrint(self, ctx: GramParser.PrintContext):
@@ -650,7 +736,7 @@ class CodeGenerator(GramVisitor):
             Warning("float literal not implemented yet, no code generated")
         return 0
     
-    def declare(self, privacy, name, size = 1, initial_value_in_register = None):
+    def declare(self, privacy, name, initial_value_in_register = None, size = 1):
         self.vars_sizes[name] = size
         if initial_value_in_register is not None:
             self.save_in_stack(initial_value_in_register) 
@@ -665,16 +751,6 @@ class CodeGenerator(GramVisitor):
 
     def visitTerminal(self, node):
         return 0
-        symbol = node.getSymbol()
-        if symbol.type == self.parser.INT: #or symbol.type == self.parser.FLOAT: float not supported yet
-            self.output += "li $a0, " + symbol.text + "\n"
-        # elif symbol.type == self.parser.ID:
-        #     if not (symbol.text in self.enviroment.keys()): # to remove since MemoryCalculator already does this check
-        #         raise NameError(f"use of {symbol.text} before declaration") 
-            
-        else:
-            print(symbol.text, "encountered, didn't produce any instrucion")
-        return 
 
     def save_in_stack(self, register):
         self.output += "addi $sp, -1\n"
@@ -689,8 +765,10 @@ class CodeGenerator(GramVisitor):
         for F_ID in self.blocks_info.keys():
             ENTRY_LINE = str(self.blocks_info[F_ID]["ENTRY_LINE"])
             LENGTH = str(self.blocks_info[F_ID]["LENGTH"])
+            LENGTH_ = str(self.blocks_info[F_ID]["LENGTH"]+1)
             F_ID = str(F_ID)
             self.output.value = self.output.value.replace("#"+F_ID+"@ENTRY_LINE", ENTRY_LINE)
+            self.output.value = self.output.value.replace("#"+F_ID+"@LENGTH#1", LENGTH_)
             self.output.value = self.output.value.replace("#"+F_ID+"@LENGTH", LENGTH)
             while self.output.value.find("#"+F_ID+"@DISTANCE_TO_") != -1:
                 i = self.output.value.find("#" + F_ID + "@DISTANCE_TO_")
@@ -700,6 +778,5 @@ class CodeGenerator(GramVisitor):
                     num += self.output.value[i]
                     i += 1
                 LENGTH_TO = str(int(num) - int(ENTRY_LINE) + 1)
-                print("#"+F_ID+"@DISTANCE_TO_"+num in self.output.value)
                 self.output.value = \
                     self.output.value.replace("#"+F_ID+"@DISTANCE_TO_"+num, LENGTH_TO)

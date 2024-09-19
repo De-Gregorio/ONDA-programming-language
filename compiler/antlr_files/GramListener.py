@@ -134,6 +134,15 @@ class GramListener(ParseTreeListener):
         pass
 
 
+    # Enter a parse tree produced by GramParser#reversingBody.
+    def enterReversingBody(self, ctx:GramParser.ReversingBodyContext):
+        pass
+
+    # Exit a parse tree produced by GramParser#reversingBody.
+    def exitReversingBody(self, ctx:GramParser.ReversingBodyContext):
+        pass
+
+
     # Enter a parse tree produced by GramParser#returnStmt.
     def enterReturnStmt(self, ctx:GramParser.ReturnStmtContext):
         pass

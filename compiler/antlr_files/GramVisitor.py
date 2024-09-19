@@ -79,6 +79,11 @@ class GramVisitor(ParseTreeVisitor):
         return self.visitChildren(ctx)
 
 
+    # Visit a parse tree produced by GramParser#reversingBody.
+    def visitReversingBody(self, ctx:GramParser.ReversingBodyContext):
+        return self.visitChildren(ctx)
+
+
     # Visit a parse tree produced by GramParser#returnStmt.
     def visitReturnStmt(self, ctx:GramParser.ReturnStmtContext):
         return self.visitChildren(ctx)

@@ -45,7 +45,7 @@ def register_to_index(register):
     registers_map = {
         "$zero": 0,
         "$u": 1,
-        "$tur": 2,
+        "$tur1": 2,
         "$v0": 3,
         "$v1": 4,
         "$a0": 5,
@@ -74,7 +74,7 @@ def register_to_index(register):
         "$grp": 28,
         "$sp": 29,
         "$fp": 30,
-        "$ra": 31
+        "$tur2": 31
     }
 
     if register.isnumeric():
