@@ -14,12 +14,7 @@ from .SemanticChecker import SemanticChecker
 # ___return a value
 # ___assignment
 # ___ifCond
-# doWhile
-# most of the vars will be in the registers (caller saved), the vars that needs to be accesed by 
-# the user to reverse the computation will be simple variables. The user will br able to implement 
-# two body, one normal, and the other that will be executed only at the end of the doWhile loop. If 
-# the second body is not implemented, than the arguments will be thrown away
-# 
+# ___doWhile
 # problem: the variable gets added in the enviroment also if the if branch in which they are
 # declared is not executed 
 # high level way to access garbage
@@ -67,7 +62,7 @@ class CodeGenerator(GramVisitor):
     def generate_code(self, tree):
         self.output = IncreadiblyCapableString(debug=True)
         self.enviroment = {"ACCESABLE" : {}, "INACCESABLE" : {}}
-        self.vars_sizes = {}
+        self.vars_sizes = {"ACCESABLE" : {}, "INACCESABLE" : {}}
         self.current_block_id = 0
         self.fp_offset = 0 
         self.assigning_variable = {"ID" : None}
@@ -96,8 +91,8 @@ class CodeGenerator(GramVisitor):
         F_ID = ctx.ID().getText()
         self.current_F_ID = F_ID
         fargs = self.functions_fargs[ctx.ID().getText()]
-        old_env = {"ACCESABLE" : self.enviroment["ACCESABLE"].copy(), 
-                   "INACCESABLE" : self.enviroment["INACCESABLE"].copy()}
+        old_env = self.get_env_copy()
+        old_vars_size = self.get_vars_sizes_copy()
         old_fp_offset = self.fp_offset
 
         # STACK COMPOSITION AT CALL
@@ -113,7 +108,7 @@ class CodeGenerator(GramVisitor):
 
         for farg in fargs:
             self.enviroment["ACCESABLE"][farg["ID"]] = self.fp_offset
-            self.vars_sizes[farg["ID"]] = 1 if farg["ARR_SIZE"] == 0 else farg["ARR_SIZE"]
+            self.vars_sizes["ACCESABLE"][farg["ID"]] = 1 if farg["ARR_SIZE"] == 0 else farg["ARR_SIZE"]
             self.fp_offset -= 1 if farg["ARR_SIZE"] == 0 else farg["ARR_SIZE"]
 
         self.blocks_info[F_ID] = {}
@@ -135,6 +130,7 @@ class CodeGenerator(GramVisitor):
         
         print(self.fp_offset, self.enviroment, self.current_F_ID)
         self.enviroment = old_env
+        self.vars_sizes = old_vars_size
         self.fp_offset = old_fp_offset 
         return 0  
     
@@ -175,6 +171,9 @@ class CodeGenerator(GramVisitor):
         # tur -= fun_len       = c_pc - fp_pc - fun_len
         # tur += 1             = c_pc - fp_pc - fun_len + 1
         # swap ur tur          (fp_pc + fun_len) + c_pc - fp_c - fun_len  = c_pc + 1
+        save_env = self.get_env_copy()
+        save_vars_sizes = self.get_vars_sizes_copy()
+        save_fp_offset = self.fp_offset
         if ctx.expr():
             self.visit(ctx.expr())
             self.output += "add $t1, $a0\n"
@@ -191,6 +190,9 @@ class CodeGenerator(GramVisitor):
             self.output += "addi $sp, " + str(temporaries_needed) + "\n"
         if self.current_F_ID == "main":
             self.output += "eop\n"
+            self.enviroment = save_env
+            self.vars_sizes = save_vars_sizes
+            self.fp_offset = save_fp_offset
             return 0
         self.output += "neg $tur1\n"
         self.output += f"addi $v1, #{self.current_F_ID}@DISTANCE_TO_{self.output.current_line+4}\n"
@@ -199,27 +201,38 @@ class CodeGenerator(GramVisitor):
         self.output += "swre $u, $tur1\n"
         self.blocks_info[self.current_F_ID]["ENTRY_LINE"]
         self.output += f"# end return of {self.current_F_ID}\n"
+        self.enviroment = save_env
+        self.vars_sizes = save_vars_sizes
+        self.fp_offset = save_fp_offset
         return 0
  
     def clean_local_vars(self):
-        env_a = self.enviroment["ACCESABLE"]
-        env_ia = self.enviroment["INACCESABLE"]
-        combined_env = {**env_a, **env_ia}
-        combined_env = {V_ID : combined_env[V_ID] for V_ID in combined_env if combined_env[V_ID] < 0}
-        f_off_V_ID = max(combined_env, key = combined_env.get) \
-                    if len(combined_env) > 0 else None
-        l_off_V_ID = min(combined_env, key = combined_env.get) \
-                    if len(combined_env) > 0 else None 
-        if f_off_V_ID is None:
-            return # nothing to clean  
-        last_offset = combined_env[l_off_V_ID] - self.vars_sizes[l_off_V_ID] + 1
-        first_offset = combined_env[f_off_V_ID]
+        keys = list(self.enviroment["ACCESABLE"].keys())
+        for V_ID in keys:
+            if self.enviroment["ACCESABLE"][V_ID] < 0:
+                self.deallocate("ACCESABLE", V_ID, with_ta=True)
+        keys = list(self.enviroment["INACCESABLE"].keys())
+        for V_ID in keys:
+            if self.enviroment["INACCESABLE"][V_ID] < 0:
+                self.deallocate("INACCESABLE", V_ID, with_ta=True)
+        # env_a = self.enviroment["ACCESABLE"]
+        # env_ia = self.enviroment["INACCESABLE"]
+        # combined_env = {**env_a, **env_ia}
+        # combined_env = {V_ID : combined_env[V_ID] for V_ID in combined_env if combined_env[V_ID] < 0}
+        # f_off_V_ID = max(combined_env, key = combined_env.get) \
+        #             if len(combined_env) > 0 else None
+        # l_off_V_ID = min(combined_env, key = combined_env.get) \
+        #             if len(combined_env) > 0 else None 
+        # if f_off_V_ID is None:
+        #     return # nothing to clean  
+        # last_offset = combined_env[l_off_V_ID] - self.vars_sizes[l_off_V_ID] + 1
+        # first_offset = combined_env[f_off_V_ID]
 
-        self.output += "addi $sp, " + str(first_offset-last_offset + 1) + "\n"
-        while last_offset != (first_offset + 1):
-            self.output += "sw $a0, " + str(last_offset) + "($fp)\n"
-            self.output += "ta $a0\n"
-            last_offset += 1
+        # self.output += "addi $sp, " + str(first_offset-last_offset + 1) + "\n"
+        # while last_offset != (first_offset + 1):
+        #     self.output += "sw $a0, " + str(last_offset) + "($fp)\n"
+        #     self.output += "ta $a0\n"
+        #     last_offset += 1
 
     def load_aargs(self, ctx : GramParser.FunctionCallContext):
         fargs = self.functions_fargs[ctx.ID().getText()]
@@ -305,17 +318,14 @@ class CodeGenerator(GramVisitor):
         return sp_offset
     
     def visitBody(self, ctx: GramParser.BodyContext):
-        old_env = self.enviroment.copy()
+        old_env = self.get_env_copy()
         self.visitChildren(ctx)
         self.enviroment = old_env
         return 0
     
-    def visitStmt(self, ctx: GramParser.StmtContext):
-        return super().visitStmt(ctx)
-
     def visitVarDecl(self, ctx:GramParser.VarDeclContext):
         ID = ctx.ID().getText()
-        self.vars_sizes[ID] = 1
+        self.vars_sizes["ACCESABLE"][ID] = 1
         if ID in self.enviroment["ACCESABLE"].keys(): # to remove since MemoryCalculator already does this check
             raise NameError(f"redeclaration of {ID} isn't allowed") 
         if ctx.getChildCount() == 2: # TYPE ID
@@ -334,13 +344,17 @@ class CodeGenerator(GramVisitor):
             self.rvisitExpr(ctx.expr())
         elif ctx.OPENSQUARE(): # TYPE ID '['INT']' 
             arr_size = int(ctx.INT().getText())
-            self.vars_sizes[ID] = arr_size
+            self.vars_sizes["ACCESABLE"][ID] = arr_size
             self.output += "addi $sp, -" + str(arr_size) + "\n"   
             self.fp_offset -= 1
             self.enviroment["ACCESABLE"][ID] = self.fp_offset
             self.fp_offset -= (arr_size - 1) 
         else:
             Warning("uknown declaration: ", ctx.getText())
+        privacy, name = self.get_top_of_the_stack()
+        self.top_of_the_stack_privacy = privacy
+        self.top_of_the_stack_name = name
+        self.top_of_the_stack_value = self.enviroment[privacy][name]
 
     def visitExpr(self, ctx:GramParser.ExprContext):
         """
@@ -629,8 +643,7 @@ class CodeGenerator(GramVisitor):
                         self.blocks_info[else_id]["ENTRY_LINE"] 
             self.output += f"caddi $a0, $u, -#{else_id}@LENGTH\n"
         self.output += "ta $a0\n"
-        del self.enviroment["INACCESABLE"]["_if_cond"+if_id]
-        self.output += "addi $sp, 1\n"
+        self.deallocate("INACCESABLE", "_if_cond"+str(if_id))
 
     def visitDoWhile(self, ctx: GramParser.DoWhileContext):
         self.current_block_id += 1
@@ -641,7 +654,6 @@ class CodeGenerator(GramVisitor):
         self.declare("INACCESABLE", "counter"+loop_block_id)
         self.declare("INACCESABLE", "activationTcsu"+loop_block_id)
         self.declare("INACCESABLE", "innerCondition"+loop_block_id)
-        print("env in for: ", self.enviroment)
 
         self.swap_var_in("$tur1", "INACCESABLE", "oldTur1Save"+loop_block_id) # save the old turs and
         self.swap_var_in("$tur2", "INACCESABLE", "oldTur2Save"+loop_block_id) # load new ones
@@ -701,21 +713,32 @@ class CodeGenerator(GramVisitor):
         self.output += "flip $t0\n"
         self.swap_var_in("$tur1", "INACCESABLE", "oldTur1Save"+loop_block_id)
         self.swap_var_in("$tur2", "INACCESABLE", "oldTur2Save"+loop_block_id)
+        print("env at the end of the for:")
+        print(self.enviroment)
+        self.deallocate("INACCESABLE", "oldTur1Save"+loop_block_id)
+        self.deallocate("INACCESABLE", "oldTur2Save"+loop_block_id)
+        self.deallocate("INACCESABLE", "activationTcsu"+loop_block_id)
+        self.deallocate("INACCESABLE", "innerCondition"+loop_block_id)
         if ctx.reversingBody():
+            self.swap_var_in("$t1", "INACCESABLE", "counter"+loop_block_id)
+            if "_counter" in self.enviroment["ACCESABLE"]: 
+                save_value = self.enviroment["ACCESABLE"]["_counter"]
+                save_size = self.vars_sizes["ACCESABLE"]["_counter"]
+            else:
+                save_value, save_size = None, None
+            self.enviroment["ACCESABLE"]["_counter"] = self.enviroment["INACCESABLE"]["counter"+loop_block_id]
+            self.vars_sizes["ACCESABLE"]["_counter"] = self.vars_sizes["INACCESABLE"]["counter"+loop_block_id]
+            self.deallocate("INACCESABLE", "counter"+loop_block_id, only_update_env=True)
+            print("env in the rev body:")
+            print(self.enviroment)
             self.visit(ctx.reversingBody()) # make counter accesable
+            self.deallocate("ACCESABLE", "_counter")
+            if save_value is not None:
+                self.enviroment["ACCESABLE"]["_counter"] = save_value
+                self.vars_sizes["ACCESABLE"]["_counter"] = save_size
         else:
             self.output += "ta $t1\n"
-            del self.enviroment["INACCESABLE"]["counter"+loop_block_id]
-            self.output += "addi $sp, 1\n"
-            self.fp_offset += 1
-        
-        del self.enviroment["INACCESABLE"]["oldTur1Save"+loop_block_id]
-        del self.enviroment["INACCESABLE"]["oldTur2Save"+loop_block_id]
-        del self.enviroment["INACCESABLE"]["activationTcsu"+loop_block_id]
-        del self.enviroment["INACCESABLE"]["innerCondition"+loop_block_id]
-        self.output += "addi $sp, 4\n"
-        self.fp_offset += 4
-        print("env out of for", self.enviroment)
+            self.deallocate("INACCESABLE", "counter"+loop_block_id)
         return 0
     
     def visitPrint(self, ctx: GramParser.PrintContext):
@@ -737,13 +760,88 @@ class CodeGenerator(GramVisitor):
         return 0
     
     def declare(self, privacy, name, initial_value_in_register = None, size = 1):
-        self.vars_sizes[name] = size
+        self.vars_sizes[privacy][name] = size
         if initial_value_in_register is not None:
             self.save_in_stack(initial_value_in_register) 
         else: 
-            self.output += "addi $sp, -1\n"
+            self.output += f"addi $sp, -{size}\n"
         self.fp_offset -= 1
         self.enviroment[privacy][name] = self.fp_offset
+        new_top_privacy, new_top_name = self.get_top_of_the_stack()
+        self.top_of_the_stack_privacy = new_top_privacy
+        self.top_of_the_stack_name = new_top_name
+        self.top_of_the_stack_value = self.enviroment[new_top_privacy][new_top_name]
+
+    def deallocate(self, privacy, name, size = 1, with_ta = False, only_update_env = False):
+        if not hasattr(self, "top_of_the_stack_value"):
+            privacy, name = self.get_top_of_the_stack()
+            self.top_of_the_stack_privacy = privacy
+            self.top_of_the_stack_name = name
+            self.top_of_the_stack_value = self.enviroment[privacy][name]
+            
+        if only_update_env:
+            del self.enviroment[privacy][name] 
+            del self.vars_sizes[privacy][name]
+            return 
+        
+        if with_ta:
+            if only_update_env:
+                raise NameError("you can have with_ta and only_update_env both True")   
+            first_offset = self.enviroment[privacy][name]
+            last_offset = first_offset - self.vars_sizes[privacy][name] + 1
+            while last_offset != (first_offset + 1):
+                self.output += f"sw $a0, {last_offset}($fp)\n"
+                self.output += "ta $a0\n" 
+                last_offset += 1
+
+
+        # the pointed memory is now made of all 0s
+        offset = self.enviroment[privacy][name]
+        last_offset = offset - self.vars_sizes[privacy][name] + 1
+        del self.enviroment[privacy][name] 
+        del self.vars_sizes[privacy][name]
+        if offset ==  self.top_of_the_stack_value: # you are at the top of the stack
+            new_top_privacy, new_top_name = self.get_top_of_the_stack()
+            self.top_of_the_stack_privacy = new_top_privacy
+            self.top_of_the_stack_name = new_top_name
+            if new_top_name is not None:
+                new_top_value = self.enviroment[new_top_privacy][new_top_name]  
+                self.top_of_the_stack_value = new_top_value
+                new_last_offset = new_top_value - self.vars_sizes[new_top_privacy][new_top_name] + 1
+            else:
+                new_top_value = -self.blocks_info[self.current_F_ID]["TEMPORARIES_NEEDED"]
+                new_last_offset = new_top_value
+            self.output += f"addi $sp, {new_last_offset - last_offset}\n"
+            self.fp_offset += new_last_offset - last_offset
+        return 0
+
+    def get_top_of_the_stack(self):
+        env_a = self.enviroment["ACCESABLE"]
+        env_ia = self.enviroment["INACCESABLE"]
+        combined_env = {**env_a, **env_ia} 
+        top_V_ID = min(combined_env, key = combined_env.get) \
+                    if len(combined_env) > 0 else None 
+        if top_V_ID is None: # only expr are in the stack        
+            return (None, None)
+        elif combined_env[top_V_ID] > 0: # only expr and aargs are in the stack
+            return (None, None)
+        elif (top_V_ID in env_ia) and (top_V_ID in env_a):
+            if env_a[top_V_ID] < env_ia[top_V_ID]:
+                return ("ACCESABLE", top_V_ID)
+            else:
+                return ("INACCESABLE", top_V_ID)
+        elif top_V_ID in env_ia:
+            return ("INACCESABLE", top_V_ID)
+        elif top_V_ID in env_a:
+            return ("ACCESABLE", top_V_ID)
+        
+    def get_env_copy(self):
+        return {"ACCESABLE" : self.enviroment["ACCESABLE"].copy(), 
+                "INACCESABLE" : self.enviroment["INACCESABLE"].copy()}
+    
+    def get_vars_sizes_copy(self):
+        return {"ACCESABLE" : self.vars_sizes["ACCESABLE"].copy(), 
+                "INACCESABLE" : self.vars_sizes["INACCESABLE"].copy()}
 
     def swap_var_in(self, register, privacy, name):
         fp_offset = self.enviroment[privacy][name]

@@ -15,10 +15,14 @@ private:
     static const int garbage_size = 100000;
     static const int n_bit_opcode = 6;
     static const int word_size = 64;
+    static const int $grp = 28;
+    static const int $sp = 29;
+    static const int $fp = 30;
     T* memory = new T[mem_size];
     T* registers = new T[reg_size];
     T* garbage = new T[garbage_size];
     bool computation_completed = false;
+
     uint64_t pc = 0;    
 
     template <size_t N>
@@ -415,7 +419,7 @@ private:
         cerr << pc << endl;
         if(src == 31){
             for(int i = 0; i < reg_size; i++)
-                if(i == 29 || i == 30){
+                if(i == $sp || i == $fp){
                     cerr<< "R[" << i << "] = " << registers[i] - mem_size << '\t' 
                     << "MEM[" << -i-1 << "] = " << memory[mem_size-1-i] << '\t' 
                     << "GAR[" << i << "] = " << garbage[i] << endl;
@@ -446,14 +450,14 @@ private:
     {
         T src;
         src = one_inp<N, 5>(program_memory);
-        if(registers[28] % word_size != 0) {
+        if(registers[$grp] % word_size != 0) {
             cerr<< "segmantation fault (i have no idea what it is)" << endl;
             exit(EXIT_FAILURE);
         }
-        T t = garbage[registers[28] / word_size];
-        garbage[registers[28] / word_size] = registers[src];
+        T t = garbage[registers[$grp] / word_size];
+        garbage[registers[$grp] / word_size] = registers[src];
         registers[src] = t;
-        registers[28] += word_size;
+        registers[$grp] += word_size;
         return;
     }
 
@@ -462,8 +466,8 @@ private:
     {
         T src;
         src = one_inp<N, 5>(program_memory);    
-        int64_t gp = registers[28];
-        registers[src] ^= (garbage[gp/word_size] >> (gp%word_size)) & 1;
+        int64_t gp_value = registers[$grp];
+        registers[src] ^= (garbage[gp_value/word_size] >> (gp_value%word_size)) & 1;
     }
 
     template <size_t N> // 35
@@ -486,8 +490,8 @@ public:
         for(int i = 0; i < mem_size; i++) memory[i] = 0;
         for(int i = 0; i < reg_size; i++) registers[i] = 0;
         registers[1] = 1;
-        registers[29] = mem_size - 2; // $sp
-        registers[30] = mem_size - 1; // $fp
+        registers[$sp] = mem_size - 2; // $sp
+        registers[$fp] = mem_size - 1; // $fp
     }
 
     void set_pc(uint64_t new_pc)
@@ -558,6 +562,14 @@ public:
             cerr<< endl << "computazione completata" << endl;
         else    
             cerr<< "computazione interrotta perchè in loop infinito" << endl;
+
+        int somma = 0;
+        for(int i = 0; i < 32; i++){
+            somma += registers[i] + memory[mem_size-1-i];
+        }
+        if(somma != (mem_size*2-2) + registers[$grp]){
+            cerr << "forza napoli "<< (mem_size*2-2) + registers[$grp] << endl;
+        }
         reverseBitset(program_memory);
     }
 };

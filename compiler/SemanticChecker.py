@@ -195,6 +195,21 @@ class SemanticChecker(GramVisitor):
             ctx.to_substitute = True
         else:
             ctx.to_substitute = False
+
+    def visitReversingBody(self, ctx: GramParser.ReversingBodyContext):
+        self.initizialed_variables.append({
+            "ID" : "_counter",
+            "TYPE" : "int",
+            "ARR_SIZE" : 0
+        })
+        self.visit(ctx.body())
+        self.initizialed_variables.remove({
+            "ID" : "_counter",
+            "TYPE" : "int",
+            "ARR_SIZE" : 0
+        })
+        return 0
+
     def visitTerminal(self, node):
         if node.getSymbol().type == self.parser.ID:
             if not any(var['ID'] == node.getText() for var in self.initizialed_variables):
