@@ -17,7 +17,13 @@ from .SemanticChecker import SemanticChecker
 # ___doWhile
 # problem: the variable gets added in the enviroment also if the if branch in which they are
 # declared is not executed 
-# high level way to access garbage
+# high level way to access garbage 
+# 
+# problem: when returning, the values in the expr placeholder that could be reversed that are not already
+# been reversed are left in the free memory with non-zero value. a possible solution could be by defining 
+# the temporaries as an inacessable variable
+
+
 class IncreadiblyCapableString():
     "this object just count at which line you are at the moment"
     def __init__(self, debug = False):
@@ -38,7 +44,19 @@ class IncreadiblyCapableString():
             # if self.debug:
             #     self.value = self.value + "\t\t# " + str(self.current_line) + "\n"
         return self
-        
+
+class IdGrabber(GramVisitor):
+    def __init__(self, parser:GramParser):
+        self.parser = parser
+    
+    def get_ids(self, ctx):
+        self.ids = []
+        self.visit(ctx)
+        return self.ids
+
+    def visitTerminal(self, node):
+        if node.getSymbol().type == self.parser.ID:
+            self.ids.append(node.getText())
 
 class CodeGenerator(GramVisitor):    
     def __init__(self):
@@ -65,9 +83,10 @@ class CodeGenerator(GramVisitor):
         self.vars_sizes = {"ACCESABLE" : {}, "INACCESABLE" : {}}
         self.current_block_id = 0
         self.fp_offset = 0 
-        self.assigning_variable = {"ID" : None}
+        self.not_const_vars = [] # list of IDs
         self.parser = tree.parser
         self.pha = PlaceHolderAssigner()
+        self.idg = IdGrabber(self.parser)
         self.functions_fargs = SemanticChecker().check_errors(tree)
         self.blocks_info = {} # [block(or function)_id].key() = ["ENTRY_LINE", "LENGTH"] 
         self.visitProgram(tree)
@@ -318,9 +337,17 @@ class CodeGenerator(GramVisitor):
         return sp_offset
     
     def visitBody(self, ctx: GramParser.BodyContext):
-        old_env = self.get_env_copy()
+        # old_env = self.get_env_copy()
         self.visitChildren(ctx)
-        self.enviroment = old_env
+        # TO IMPLEMENT
+        # keys = list(self.enviroment["ACCESABLE"].keys())
+        # # print("old_env = ", old_env)
+        # # print("new_env = ", self.enviroment)
+        # for V_ID in keys:
+        #     if not (V_ID in old_env["ACCESABLE"].keys()):
+        #         # print(V_ID, "removed")
+        #         self.deallocate("ACCESABLE", V_ID)
+        # self.enviroment = old_env
         return 0
     
     def visitVarDecl(self, ctx:GramParser.VarDeclContext):
@@ -467,17 +494,17 @@ class CodeGenerator(GramVisitor):
             # are no other reverse action to perform
             return 0
         if ctx.ID() and (not ctx.OPENSQUARE()): # ID
-            if self.assigning_variable["ID"] == ctx.ID().getText():
+            if ctx.ID().getText() in self.not_const_vars:
                 expr_offset = -ctx.placeholder
                 self.output += "sw $a0, " + str(expr_offset) + "($fp)\n"    
                 self.output += "ta $a0\n"
-                pass
-            fp_offset = self.enviroment["ACCESABLE"][ctx.ID().getText()]
-            expr_offset = -ctx.placeholder
-            self.output += "sw $t1, " + str(fp_offset) + "($fp)\n"
-            self.output += "sw $a0, " + str(expr_offset) + "($fp)\n"
-            self.output += "sub $a0, $t1\n"
-            self.output += "sw $t1, " + str(fp_offset) + "($fp)\n"
+            else:
+                fp_offset = self.enviroment["ACCESABLE"][ctx.ID().getText()]
+                expr_offset = -ctx.placeholder
+                self.output += "sw $t1, " + str(fp_offset) + "($fp)\n"
+                self.output += "sw $a0, " + str(expr_offset) + "($fp)\n"
+                self.output += "sub $a0, $t1\n"
+                self.output += "sw $t1, " + str(fp_offset) + "($fp)\n"
             # self.output += "sw $a0, " + str(offset) + "($fp)\n"  
             # since it is a leaf node you don't need to put 
             # the value back in the placeholder, because 
@@ -506,7 +533,7 @@ class CodeGenerator(GramVisitor):
     def visitReAssign(self, ctx: GramParser.ReAssignContext):
         V_ID = ctx.ID().getText()
         var_offset = self.enviroment["ACCESABLE"][V_ID]
-        self.assigning_variable["ID"] = V_ID
+        self.not_const_vars.append(V_ID)
         if ctx.OPENSQUARE(): # ID '[' expr ']' = expr
             # a[a[0]] = a[0] + 1;
             self.visit(ctx.expr(1)) # $a0 = new_value
@@ -533,7 +560,7 @@ class CodeGenerator(GramVisitor):
             self.output += "sw $t0, " + str(var_offset) + "($fp)\n"
             self.output += "ta $t0\n"
             self.rvisitExpr(ctx.expr(0))
-        self.assigning_variable["ID"] = None
+        self.not_const_vars.remove(V_ID)
         return 0
 
     def visitIpAssign(self, ctx: GramParser.IpAssignContext):
@@ -611,20 +638,18 @@ class CodeGenerator(GramVisitor):
     
     def visitCondStat(self, ctx: GramParser.CondStatContext):
         self.visit(ctx.expr()) # condition
-        self.output += "add $t0, $a0\n"
-        self.output += "sw $a0, " + str(-ctx.expr().placeholder) + "($fp)\n"
-        self.rvisitExpr(ctx.expr())
-        self.output += "swre $t0, $a0\n"
         self.current_block_id += 1
         if_id = str(self.current_block_id)
         self.blocks_info[if_id] = {} 
-        self.declare("INACCESABLE", "_if_cond"+if_id)
+        # self.declare("INACCESABLE", "_if_cond"+if_id)
         self.output += f"flip $a0\n"
         self.output += f"caddi $a0, $u, #{if_id}@LENGTH\n"
         self.blocks_info[if_id]["ENTRY_LINE"] = self.output.current_line + 1 
-        self.swap_var_in("$a0", "INACCESABLE", "_if_cond"+if_id)
+        # self.swap_var_in("$a0", "INACCESABLE", "_if_cond"+if_id)
+        self.output += "sw $a0, " + str(-ctx.expr().placeholder) + "($fp)\n"
         self.visit(ctx.body(0))
-        self.swap_var_in("$a0", "INACCESABLE", "_if_cond"+if_id)
+        # self.swap_var_in("$a0", "INACCESABLE", "_if_cond"+if_id)
+        self.output += "sw $a0, " + str(-ctx.expr().placeholder) + "($fp)\n"
         self.blocks_info[if_id]["LENGTH"] = (self.output.current_line + 1) -\
                         self.blocks_info[if_id]["ENTRY_LINE"] 
             
@@ -636,14 +661,25 @@ class CodeGenerator(GramVisitor):
             self.blocks_info[else_id] = {} 
             self.output += f"caddi $a0, $u, #{else_id}@LENGTH\n"
             self.blocks_info[else_id]["ENTRY_LINE"] = self.output.current_line + 1 
-            self.swap_var_in("$a0", "INACCESABLE", "_if_cond"+if_id)
+            # self.swap_var_in("$a0", "INACCESABLE", "_if_cond"+if_id)
+            self.output += "sw $a0, " + str(-ctx.expr().placeholder) + "($fp)\n"
             self.visit(ctx.body(1))
-            self.swap_var_in("$a0", "INACCESABLE", "_if_cond"+str(if_id))            
+            # self.swap_var_in("$a0", "INACCESABLE", "_if_cond"+str(if_id))            
+            self.output += "sw $a0, " + str(-ctx.expr().placeholder) + "($fp)\n"
             self.blocks_info[else_id]["LENGTH"] = (self.output.current_line + 1) -\
                         self.blocks_info[else_id]["ENTRY_LINE"] 
             self.output += f"caddi $a0, $u, -#{else_id}@LENGTH\n"
-        self.output += "ta $a0\n"
-        self.deallocate("INACCESABLE", "_if_cond"+str(if_id))
+        self.output += "sw $a0, " + str(-ctx.expr().placeholder) + "($fp)\n"
+        if not ctx.CONST():
+            not_const_vars = self.idg.get_ids(ctx.expr())
+            self.not_const_vars.extend(not_const_vars)
+            print(self.not_const_vars)
+            self.rvisitExpr(ctx.expr())
+            self.not_const_vars = [var for var in self.not_const_vars if not (var in not_const_vars)]
+            print(self.not_const_vars)
+        else:
+            print(self.not_const_vars, "hwew")
+            self.rvisitExpr(ctx.expr())
 
     def visitDoWhile(self, ctx: GramParser.DoWhileContext):
         self.current_block_id += 1
@@ -713,8 +749,6 @@ class CodeGenerator(GramVisitor):
         self.output += "flip $t0\n"
         self.swap_var_in("$tur1", "INACCESABLE", "oldTur1Save"+loop_block_id)
         self.swap_var_in("$tur2", "INACCESABLE", "oldTur2Save"+loop_block_id)
-        print("env at the end of the for:")
-        print(self.enviroment)
         self.deallocate("INACCESABLE", "oldTur1Save"+loop_block_id)
         self.deallocate("INACCESABLE", "oldTur2Save"+loop_block_id)
         self.deallocate("INACCESABLE", "activationTcsu"+loop_block_id)
@@ -729,8 +763,6 @@ class CodeGenerator(GramVisitor):
             self.enviroment["ACCESABLE"]["_counter"] = self.enviroment["INACCESABLE"]["counter"+loop_block_id]
             self.vars_sizes["ACCESABLE"]["_counter"] = self.vars_sizes["INACCESABLE"]["counter"+loop_block_id]
             self.deallocate("INACCESABLE", "counter"+loop_block_id, only_update_env=True)
-            print("env in the rev body:")
-            print(self.enviroment)
             self.visit(ctx.reversingBody()) # make counter accesable
             self.deallocate("ACCESABLE", "_counter")
             if save_value is not None:
@@ -754,7 +786,7 @@ class CodeGenerator(GramVisitor):
 
     def visitNum(self, ctx: GramParser.NumContext):
         if ctx.INT():
-            self.output += "xori $a0, " + ctx.getText() + "\n"
+            self.output += "xorsi $a0, " + ctx.getText() + "\n"
         if ctx.FLOAT():
             Warning("float literal not implemented yet, no code generated")
         return 0

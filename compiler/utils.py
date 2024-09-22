@@ -32,7 +32,6 @@ def build_grammar(path = ".\\antlr_files", main_gram = "Gram.g4",
     if result.stderr + result.stdout != "" or result.returncode != 0:
         print("during compilation of grammar: ")
         print(result.stderr +  result.stdout)
-        exit(1)
     for gram in other_grams:
         shutil.move(gram,
                     original_dir)

@@ -278,10 +278,11 @@ private:
     }
 
     template <size_t N> // 17
-    void xor_immediate(bitset<N>& program_memory)
+    void xor_sign_extended_immediate(bitset<N>& program_memory)
     {
         T src, imm;
         tie(src, imm) = two_inp<N, 5, 21>(program_memory);
+        sign_extend(imm, 21);
         registers[src] ^= imm;
     }
 
@@ -533,7 +534,7 @@ public:
             if(opcode == 14) {cmul(program_memory);  continue;}
             if(opcode == 15) {cmuli(program_memory);     continue;}
             if(opcode == 16) {swap_word_in_memory(program_memory);    continue;}
-            if(opcode == 17) {xor_immediate(program_memory);               continue;}
+            if(opcode == 17) {xor_sign_extended_immediate(program_memory);               continue;}
             if(opcode == 18) {load_upper(program_memory);                 continue;}
             if(opcode == 19) {load_upperi(program_memory);          continue;}
             if(opcode == 20) {flip_on_equal(program_memory);   continue;}
