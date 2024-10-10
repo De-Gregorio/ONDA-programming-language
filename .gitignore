@@ -1,6 +1,7 @@
 # Escluder file di prova
 *.qas
 *.txt
+*.onda
 *.png  
 # Escludere notebooks
 *.ipynb

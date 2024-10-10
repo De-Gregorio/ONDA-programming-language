@@ -116,6 +116,24 @@ class GramListener(ParseTreeListener):
         pass
 
 
+    # Enter a parse tree produced by GramParser#reAssignS.
+    def enterReAssignS(self, ctx:GramParser.ReAssignSContext):
+        pass
+
+    # Exit a parse tree produced by GramParser#reAssignS.
+    def exitReAssignS(self, ctx:GramParser.ReAssignSContext):
+        pass
+
+
+    # Enter a parse tree produced by GramParser#ipAssignS.
+    def enterIpAssignS(self, ctx:GramParser.IpAssignSContext):
+        pass
+
+    # Exit a parse tree produced by GramParser#ipAssignS.
+    def exitIpAssignS(self, ctx:GramParser.IpAssignSContext):
+        pass
+
+
     # Enter a parse tree produced by GramParser#condStat.
     def enterCondStat(self, ctx:GramParser.CondStatContext):
         pass
@@ -161,6 +179,15 @@ class GramListener(ParseTreeListener):
         pass
 
 
+    # Enter a parse tree produced by GramParser#special_ID.
+    def enterSpecial_ID(self, ctx:GramParser.Special_IDContext):
+        pass
+
+    # Exit a parse tree produced by GramParser#special_ID.
+    def exitSpecial_ID(self, ctx:GramParser.Special_IDContext):
+        pass
+
+
     # Enter a parse tree produced by GramParser#expr.
     def enterExpr(self, ctx:GramParser.ExprContext):
         pass
@@ -176,6 +203,15 @@ class GramListener(ParseTreeListener):
 
     # Exit a parse tree produced by GramParser#print.
     def exitPrint(self, ctx:GramParser.PrintContext):
+        pass
+
+
+    # Enter a parse tree produced by GramParser#swap.
+    def enterSwap(self, ctx:GramParser.SwapContext):
+        pass
+
+    # Exit a parse tree produced by GramParser#swap.
+    def exitSwap(self, ctx:GramParser.SwapContext):
         pass
 
 

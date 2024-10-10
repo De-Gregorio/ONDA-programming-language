@@ -15,6 +15,12 @@ from .SemanticChecker import SemanticChecker
 # ___assignment
 # ___ifCond
 # ___doWhile
+# specialid
+# reassignS, ipassignS
+# visit, rvisit expr
+# check ID, assign, ipassign
+# swap
+#
 # problem: the variable gets added in the enviroment also if the if branch in which they are
 # declared is not executed 
 # high level way to access garbage 
@@ -423,6 +429,8 @@ class CodeGenerator(GramVisitor):
             self.output += "sw $t1, " + str(fp_offset) + "($fp)\n"
             self.output += "add $a0, $t1\n"
             self.output += "sw $t1, " + str(fp_offset) + "($fp)\n"
+        if ctx.special_ID():
+            self.visit(ctx.special_ID())
         if ctx.functionCall(): # functionCall
             self.output += "# start functionCall\n"
             self.visit(ctx.functionCall())
@@ -509,6 +517,14 @@ class CodeGenerator(GramVisitor):
             # the value back in the placeholder, because 
             # the expr placeholder is already 0 and there 
             # are no other reverse action to perform
+        if ctx.special_ID():
+            self.output += "sw $a0, " + str(-ctx.placeholder) + "($fp)\n"
+            if any("%" for el in self.not_const_vars) \
+                or "_gp" in self.not_const_vars:
+                self.output += "ta $a0\n"
+            else: 
+                self.rvisitSpecial_id(ctx.special_ID())
+
         if ctx.functionCall(): # functionCall
             expr_offset = -ctx.placeholder
             self.output += "sw $a0, " + str(expr_offset) + "($fp)\n"
@@ -528,6 +544,27 @@ class CodeGenerator(GramVisitor):
         if ctx.OPENPAREN(): #c '(' expr ')'
             self.rvisitExpr(ctx.expr(0)) 
         return 0
+
+    def visitSpecial_ID(self, ctx: GramParser.Special_IDContext):
+        if ctx.GARBAGEPOINTER(): # _gp
+            self.output += "add $a0, $grp\n"
+            return
+        # %[expr]
+        self.visit(ctx.expr())
+        self.output += "rg $t0, $a0\n"
+        self.output += "sw $a0, " + str(-ctx.expr().placeholder) + "($fp)\n"
+        self.output += "swre $a0, $t0\n"
+
+    def rvisitSpecial_id(self, ctx : GramParser.Special_IDContext):
+        # the value to reverse is in $a0
+        if ctx.GARBAGEPOINTER(): # _gp
+            self.output += "sub $a0, $grp\n"
+            return
+        # %[expr]
+        self.output += "sw $t1, " + str(-ctx.expr().placeholder) + "($fp)\n"
+        self.output += "rg $a0, $t1\n"
+        self.output += "sw $t1, " + str(-ctx.expr().placeholder) + "($fp)\n"
+        self.rvisitExpr(ctx.expr())
 
     def visitReAssign(self, ctx: GramParser.ReAssignContext):
         V_ID = ctx.ID().getText()

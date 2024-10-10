@@ -69,6 +69,16 @@ class GramVisitor(ParseTreeVisitor):
         return self.visitChildren(ctx)
 
 
+    # Visit a parse tree produced by GramParser#reAssignS.
+    def visitReAssignS(self, ctx:GramParser.ReAssignSContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by GramParser#ipAssignS.
+    def visitIpAssignS(self, ctx:GramParser.IpAssignSContext):
+        return self.visitChildren(ctx)
+
+
     # Visit a parse tree produced by GramParser#condStat.
     def visitCondStat(self, ctx:GramParser.CondStatContext):
         return self.visitChildren(ctx)
@@ -94,6 +104,11 @@ class GramVisitor(ParseTreeVisitor):
         return self.visitChildren(ctx)
 
 
+    # Visit a parse tree produced by GramParser#special_ID.
+    def visitSpecial_ID(self, ctx:GramParser.Special_IDContext):
+        return self.visitChildren(ctx)
+
+
     # Visit a parse tree produced by GramParser#expr.
     def visitExpr(self, ctx:GramParser.ExprContext):
         return self.visitChildren(ctx)
@@ -101,6 +116,11 @@ class GramVisitor(ParseTreeVisitor):
 
     # Visit a parse tree produced by GramParser#print.
     def visitPrint(self, ctx:GramParser.PrintContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by GramParser#swap.
+    def visitSwap(self, ctx:GramParser.SwapContext):
         return self.visitChildren(ctx)
 
 

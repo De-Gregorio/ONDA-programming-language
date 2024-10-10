@@ -48,6 +48,8 @@ reAssign:ID '=' expr
         |ID'['expr']' '=' expr;
 ipAssign: ID OP_INPLACE expr
         | ID'['expr']' OP_INPLACE expr;
+reAssignS : special_ID '=' expr;
+ipAssignS : special_ID OP_INPLACE expr;
   
 condStat
     : IF '(' 'const'? expr ')' '{' body '}' 
@@ -64,14 +66,18 @@ returnStmt : RETURN expr?;
 
 num : INT | FLOAT;
 
+special_ID : '%' '['expr']' | '_gp';
+
 expr: expr OP_MULTIPLICATIVE expr
     | expr OP_ADDITIVE expr
     | expr OP_COMPARATIVE expr
     | num
     | ID
+    | special_ID
     | functionCall
     | ID'['expr']' 
     | '(' expr ')'
     ;
 
 print : PRINT_TOKEN expr;
+swap : (ID | special_ID) ',' (ID | special_ID);

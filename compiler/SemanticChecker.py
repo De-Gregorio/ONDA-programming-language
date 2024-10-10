@@ -22,7 +22,6 @@ class SemanticChecker(GramVisitor):
             raise NameError(error_message)
         return {F_ID : self.declared_functions[F_ID]["fargs"] for F_ID in self.declared_functions.keys()}
 
-
     def get_fargs(self, ctx, F_ID):
         #ctx : FunctionDeclContext | FunctionImplContext
         #F_ID: Function_ID, passed for error handling purposes
@@ -50,8 +49,7 @@ class SemanticChecker(GramVisitor):
             #     continue
             # else:
             #     break
-        return formal_arguments.copy()
-        
+        return formal_arguments.copy()       
     
     def get_aargs(self, ctx:GramParser.FunctionCallContext):
         if not ctx.aargs():
@@ -97,8 +95,7 @@ class SemanticChecker(GramVisitor):
             return "float"
         else:
             raise NotADirectoryError("Interesting error")
-
-    
+   
     def visitFunctionDecl(self, ctx: GramParser.FunctionDeclContext):
         F_ID = ctx.ID().getText()
         if F_ID in self.declared_functions.keys():
@@ -119,6 +116,16 @@ class SemanticChecker(GramVisitor):
         else:
             self.declared_functions[F_ID] = {}
         self.initizialed_variables = formal_args.copy()
+        self.initizialed_variables.append({
+            "ID" : "_gp",
+            "TYPE" : "int",
+            "ARR_SIZE" : 1
+        })
+        self.initizialed_variables.append({
+            "ID" : "%",
+            "TYPE" : "int",
+            "ARR_SIZE" : int(2*63)
+        })
         self.declared_functions[F_ID]["fargs"] = formal_args.copy()
         self.declared_functions[F_ID]["implemented"] = True
         if ctx.body():

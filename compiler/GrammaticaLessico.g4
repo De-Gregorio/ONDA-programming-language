@@ -32,6 +32,8 @@ OPENCURLY : '{';
 CLOSECURLY : '}';
 COMMA : ',';
 ECOMMERCIAL : '&';
+PERCENTAGE : '%';
+GARBAGEPOINTER : '_gp';
 CONST : 'const' ;
 PRINT_TOKEN : 'print' ;
 INT : ('+'|'-')?[0-9]+ ;

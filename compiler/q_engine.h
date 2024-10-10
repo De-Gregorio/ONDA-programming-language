@@ -18,6 +18,7 @@ private:
     static const int $grp = 28;
     static const int $sp = 29;
     static const int $fp = 30;
+    bool print_all = false;
     T* memory = new T[mem_size];
     T* registers = new T[reg_size];
     T* garbage = new T[garbage_size];
@@ -479,6 +480,14 @@ private:
         registers[src] = -registers[src];
     }
 
+    template <size_t N> // 36
+    void read_garbage(bitset<N>& program_memory)
+    {
+        T dest, idx;
+        tie(dest, idx) = two_inp<N, 5, 5>(program_memory);
+        registers[dest] ^= (garbage[registers[idx] / 64] >> (registers[idx] % 64)) & 1;
+    }
+
     template <size_t N> // 63
     void end_program(bitset<N>& program_memory)
     {
@@ -515,7 +524,8 @@ public:
             pc += registers[1];
             for(int i = 0; i < n_bit_opcode; i ++) 
                 opcode[i] = program_memory[(pc*32)+n_bit_opcode-i-1];
-            // cerr<< " " << opcode << " " << endl;
+            // if(print_all)
+            //     cerr<< " " << opcode << " " << endl;
             // transform this in a switch case
             if(opcode == 0) {add(program_memory);  continue;}
             if(opcode == 1) {addi(program_memory); continue;}
@@ -553,6 +563,7 @@ public:
             if(opcode == 33) {throw_away(program_memory); continue;}
             if(opcode == 34) {load_from_garbage(program_memory); continue;}
             if(opcode == 35) {negate(program_memory); continue;}
+            if(opcode == 36) {read_garbage(program_memory); continue;}
             if(opcode == 63) {end_program(program_memory);         break;}
             cerr<< "op code " << opcode << " non valido\n";
         }while(pc+registers[1] >= 0 && pc+registers[1] < N / 32 && iteration <= MAX_ITERATION);
