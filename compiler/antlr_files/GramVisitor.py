@@ -104,11 +104,6 @@ class GramVisitor(ParseTreeVisitor):
         return self.visitChildren(ctx)
 
 
-    # Visit a parse tree produced by GramParser#special_ID.
-    def visitSpecial_ID(self, ctx:GramParser.Special_IDContext):
-        return self.visitChildren(ctx)
-
-
     # Visit a parse tree produced by GramParser#expr.
     def visitExpr(self, ctx:GramParser.ExprContext):
         return self.visitChildren(ctx)

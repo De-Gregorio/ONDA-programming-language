@@ -93,7 +93,7 @@ class CodeGenerator(GramVisitor):
         self.vars_sizes = {"ACCESABLE" : {}, "INACCESABLE" : {}}
         self.current_block_id = 0
         self.fp_offset = 0 
-        self.active_expr = None
+        self.active_expr = 0
         self.not_const_vars = [] # list of IDs
         self.parser = tree.parser
         self.pha = PlaceHolderAssigner()
@@ -122,6 +122,7 @@ class CodeGenerator(GramVisitor):
         self.current_F_ID = F_ID
         self.current_block_id += 1
         fargs = self.functions_fargs[ctx.ID().getText()]
+        old_active_expr = self.active_expr
         old_env = self.get_env_copy()
         old_vars_size = self.get_vars_sizes_copy()
         old_fp_offset = self.fp_offset
@@ -163,6 +164,7 @@ class CodeGenerator(GramVisitor):
         self.enviroment = old_env
         self.vars_sizes = old_vars_size
         self.fp_offset = old_fp_offset 
+        self.active_expr = old_active_expr
         return 0  
     
     def visitFunctionCall(self, ctx: GramParser.FunctionCallContext):
@@ -249,11 +251,10 @@ class CodeGenerator(GramVisitor):
         for V_ID in keys:
             if self.enviroment["INACCESABLE"][V_ID] < 0:
                 if "temporaries" in V_ID:
-                    if self.active_expr:
+                    if self.active_expr != 0:
                         self.deallocate("INACCESABLE", V_ID, with_ta=True)
                     else:
                         self.deallocate("INACCESABLE", V_ID, with_ta=False)
-                    self.active_expr = None
                 else:
                     self.deallocate("INACCESABLE", V_ID, with_ta=True)
 
@@ -393,8 +394,7 @@ class CodeGenerator(GramVisitor):
         in the forward pass, every (new) temporary is put in his placeholder except for
         the last result, that will be put in $a0
         """
-        if self.active_expr is None:
-            self.active_expr = ctx
+        self.active_expr += 1
         if ctx.OP_ADDITIVE(): # expr OP_ADDITIVE expr
             op = ctx.OP_ADDITIVE().getText()
             inst = self.sign_to_instruction[op]
@@ -432,8 +432,8 @@ class CodeGenerator(GramVisitor):
             self.output += "sw $t1, " + str(fp_offset) + "($fp)\n"
             self.output += "add $a0, $t1\n"
             self.output += "sw $t1, " + str(fp_offset) + "($fp)\n"
-        if ctx.special_ID():
-            self.visit(ctx.special_ID())
+        if ctx.GARBAGEPOINTER():
+            self.output += "add $a0, $grp\n"
         if ctx.functionCall(): # functionCall
             self.output += "# start functionCall\n"
             self.visit(ctx.functionCall())
@@ -461,6 +461,7 @@ class CodeGenerator(GramVisitor):
         in the reverse pass, every temporary is in his placeholder at the 
         start and at the end
         """
+        self.active_expr -= 1
         if ctx == self.active_expr:
             self.active_expr = None
         if ctx.OP_ADDITIVE(): # expr OP_ADDITIVE expr
@@ -520,10 +521,9 @@ class CodeGenerator(GramVisitor):
             # the value back in the placeholder, because 
             # the expr placeholder is already 0 and there 
             # are no other reverse action to perform
-        if ctx.special_ID():
+        if ctx.GARBAGEPOINTER():
             self.output += "sw $a0, " + str(-ctx.placeholder) + "($fp)\n"
-            self.rvisitSpecial_id(ctx.special_ID())
-
+            self.output += "sub $a0, $grp\n"
         if ctx.functionCall(): # functionCall
             expr_offset = -ctx.placeholder
             self.output += "sw $a0, " + str(expr_offset) + "($fp)\n"
@@ -543,13 +543,6 @@ class CodeGenerator(GramVisitor):
         if ctx.OPENPAREN(): #c '(' expr ')'
             self.rvisitExpr(ctx.expr(0)) 
         return 0
-
-    def visitSpecial_ID(self, ctx: GramParser.Special_IDContext):
-        self.output += "add $a0, $grp\n"
-        return 0    
-
-    def rvisitSpecial_id(self, ctx : GramParser.Special_IDContext):
-        self.output += "sub $a0, $grp\n"
 
     def visitReAssign(self, ctx: GramParser.ReAssignContext):
         V_ID = ctx.ID().getText()
@@ -603,7 +596,6 @@ class CodeGenerator(GramVisitor):
         self.output += "sw $a0, " + str(-ctx.expr().placeholder) + "($fp)\n"
         self.rvisitExpr(ctx.expr())
         return 0
-
 
     def visitSwap(self, ctx:GramParser.SwapContext):
         # (ID | GARBAGEPOINTER) ',' (ID | GARBAGEPOINTER)

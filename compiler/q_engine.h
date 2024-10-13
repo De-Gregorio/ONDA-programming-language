@@ -540,19 +540,19 @@ public:
             cerr<< "op code " << opcode << " non valido\n";
         }while(pc+registers[1] >= 0 && pc+registers[1] < N / 32 && iteration <= MAX_ITERATION);
         if(pc+registers[1] < 0 || pc + registers[1] >= N / 32){
-            cerr<< "messed up pc = " << pc+registers[1] << endl;
+            cout<< "messed up pc = " << pc+registers[1] << endl;
         }
         if(iteration <= MAX_ITERATION)
             cerr<< endl << "computazione completata" << endl;
         else    
-            cerr<< "computazione interrotta perchè in loop infinito" << endl;
+            cout<< "computazione interrotta perchè in loop infinito" << endl;
 
         int somma = 0;
         for(int i = 0; i < 32; i++){
             somma += registers[i] + memory[mem_size-1-i];
         }
         if(somma != (mem_size*2-2) + registers[$grp]){
-            cerr << "forza napoli "<< (mem_size*2-2) + registers[$grp] << endl;
+            cout << "forza napoli "<< (mem_size*2-2) + registers[$grp] << endl;
         }
         reverseBitset(program_memory);
     }

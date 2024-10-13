@@ -179,15 +179,6 @@ class GramListener(ParseTreeListener):
         pass
 
 
-    # Enter a parse tree produced by GramParser#special_ID.
-    def enterSpecial_ID(self, ctx:GramParser.Special_IDContext):
-        pass
-
-    # Exit a parse tree produced by GramParser#special_ID.
-    def exitSpecial_ID(self, ctx:GramParser.Special_IDContext):
-        pass
-
-
     # Enter a parse tree produced by GramParser#expr.
     def enterExpr(self, ctx:GramParser.ExprContext):
         pass
