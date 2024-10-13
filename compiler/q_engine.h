@@ -12,7 +12,6 @@ class engine
 private:
     static const int mem_size = 2097152;
     static const int reg_size = 32;
-    static const int garbage_size = 100000;
     static const int n_bit_opcode = 6;
     static const int word_size = 64;
     static const int $grp = 28;
@@ -21,7 +20,6 @@ private:
     bool print_all = false;
     T* memory = new T[mem_size];
     T* registers = new T[reg_size];
-    T* garbage = new T[garbage_size];
     bool computation_completed = false;
 
     uint64_t pc = 0;    
@@ -423,12 +421,10 @@ private:
             for(int i = 0; i < reg_size; i++)
                 if(i == $sp || i == $fp){
                     cerr<< "R[" << i << "] = " << registers[i] - mem_size << '\t' 
-                    << "MEM[" << -i-1 << "] = " << memory[mem_size-1-i] << '\t' 
-                    << "GAR[" << i << "] = " << garbage[i] << endl;
+                    << "MEM[" << -i-1 << "] = " << memory[mem_size-1-i] << endl; 
                 }else{
                     cerr<< "R[" << i << "] = " << registers[i] << '\t' 
-                    << "MEM[" << -i-1 << "] = " << memory[mem_size-1-i] << '\t' 
-                    << "GAR[" << i << "] = " << garbage[i] << endl;
+                    << "MEM[" << -i-1 << "] = " << memory[mem_size-1-i] << endl;
                 }
         }else{
             cout << "outr " << registers[src] << endl;
@@ -452,24 +448,9 @@ private:
     {
         T src;
         src = one_inp<N, 5>(program_memory);
-        if(registers[$grp] % word_size != 0) {
-            cerr<< "The garbage pointer is not a multiple of 64" << endl;
-            exit(EXIT_FAILURE);
-        }
-        T t = garbage[registers[$grp] / word_size];
-        garbage[registers[$grp] / word_size] = registers[src];
-        registers[src] = t;
-        registers[$grp] += word_size;
+        registers[src] = 0;
+        registers[$grp] += sizeof(T);
         return;
-    }
-
-    template <size_t N> // 34
-    void load_from_garbage(bitset<N>& program_memory)
-    {
-        T src;
-        src = one_inp<N, 5>(program_memory);    
-        int64_t gp_value = registers[$grp];
-        registers[src] ^= (garbage[gp_value/word_size] >> (gp_value%word_size)) & 1;
     }
 
     template <size_t N> // 35
@@ -480,29 +461,6 @@ private:
         registers[src] = -registers[src];
     }
 
-    template <size_t N> // 36
-    void read_garbage(bitset<N>& program_memory)
-    {
-        T dest, idx;
-        tie(dest, idx) = two_inp<N, 5, 5>(program_memory);
-        registers[dest] ^= (garbage[registers[idx] / 64] >> (registers[idx] % 64)) & 1;
-    }
-
-    template <size_t N> // 37
-    void swap_garbage(bitset<N>& program_memory)
-    {
-        T src1, src2;
-        tie(src1, src2) = two_inp<N, 5, 5>(program_memory);
-        cerr << "swgr    R[src1] = " << registers[src1] <<
-         ", R[src2] = " << registers[src2] << endl; 
-        int bit1 = (garbage[registers[src1] / 64] >> (registers[src1] % 64)) & 1; 
-        int bit2 = (garbage[registers[src1] / 64] >> (registers[src2] % 64)) & 1; 
-
-        if (bit1 != bit2) {
-            garbage[registers[src1] / 64] ^= (1 << registers[src1] % 64);
-            garbage[registers[src2] / 64] ^= (1 << registers[src2] % 64);
-        }
-    }
 
     template <size_t N> // 63
     void end_program(bitset<N>& program_memory)
@@ -577,10 +535,7 @@ public:
             if(opcode == 31) {output_reg(program_memory);            continue;}
             if(opcode == 32) {swap_registers(program_memory); continue;}
             if(opcode == 33) {throw_away(program_memory); continue;}
-            if(opcode == 34) {load_from_garbage(program_memory); continue;}
             if(opcode == 35) {negate(program_memory); continue;}
-            if(opcode == 36) {read_garbage(program_memory); continue;}
-            if(opcode == 37) {swap_garbage(program_memory); continue;}
             if(opcode == 63) {end_program(program_memory);         break;}
             cerr<< "op code " << opcode << " non valido\n";
         }while(pc+registers[1] >= 0 && pc+registers[1] < N / 32 && iteration <= MAX_ITERATION);

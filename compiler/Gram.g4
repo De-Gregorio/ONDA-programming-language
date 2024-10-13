@@ -49,8 +49,8 @@ reAssign:ID '=' expr
         |ID'['expr']' '=' expr;
 ipAssign: ID OP_INPLACE expr
         | ID'['expr']' OP_INPLACE expr;
-reAssignS : special_ID '=' expr;
-ipAssignS : special_ID OP_INPLACE expr;
+reAssignS : GARBAGEPOINTER '=' expr;
+ipAssignS : GARBAGEPOINTER OP_INPLACE expr;
   
 condStat
     : IF '(' 'const'? expr ')' '{' body '}' 
@@ -67,14 +67,12 @@ returnStmt : RETURN expr?;
 
 num : INT | FLOAT;
 
-special_ID : '%' '['expr']' | '_gp';
-
 expr: expr OP_MULTIPLICATIVE expr
     | expr OP_ADDITIVE expr
     | expr OP_COMPARATIVE expr
     | num
     | ID
-    | special_ID
+    | GARBAGEPOINTER
     | functionCall
     | ID'['expr']' 
     | '(' expr ')'
@@ -82,5 +80,4 @@ expr: expr OP_MULTIPLICATIVE expr
 
 print : PRINT_TOKEN expr;
 swap : 'swap'(ID | GARBAGEPOINTER) ',' (ID | GARBAGEPOINTER)
-    |  'swap' PERCENTAGE '['expr']' ',' PERCENTAGE '['expr']'
     ;
