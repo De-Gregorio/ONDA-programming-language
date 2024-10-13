@@ -15,11 +15,14 @@ from .SemanticChecker import SemanticChecker
 # ___assignment
 # ___ifCond
 # ___doWhile
-# specialid
-# reassignS, ipassignS
-# visit, rvisit expr
-# check ID, assign, ipassign
-# swap
+# ___specialid
+# ___reassignS, ___ipassignS
+# ___visit, ___rvisit expr
+# swap arrays elements
+# 
+#  
+# ___check ID, assign, ipassign
+# 
 #
 # problem: the variable gets added in the enviroment also if the if branch in which they are
 # declared is not executed 
@@ -283,7 +286,7 @@ class CodeGenerator(GramVisitor):
                 for i in range(1, farg["ARR_SIZE"]):
                     fp_offset -= 1
                     self.output += "sw $t1, " + str(fp_offset) + "($fp)\n"
-                    self.output += "add $a0, $t1"
+                    self.output += "add $a0, $t1\n"
                     self.output += "sw $a0, " + str(sp_offset) + "($sp)\n" 
                     self.output += "sw $t1, " + str(fp_offset) + "($fp)\n"
                     sp_offset -= 1
@@ -597,6 +600,64 @@ class CodeGenerator(GramVisitor):
             self.output += "ta $t0\n"
             self.rvisitExpr(ctx.expr(0))
         self.not_const_vars.remove(V_ID)
+        return 0
+
+    def visitReAssignS(self, ctx: GramParser.ReAssignSContext):
+        if '%' in ctx.special_ID().getText(): # %[expr] = expr
+            raise NameError("not supported")
+        else: # _gp = expr
+            self.visit(ctx.expr())
+            self.output += "add $t0, $a0\n"
+            self.output += "swre $grp, $a0\n"
+            self.output += "ta $a0\n"
+            self.output += "sw $t0, " + str(-ctx.expr().placeholder) + "($fp)\n"
+            self.rvisitExpr(ctx.expr())
+        return 0
+
+    def visitIpAssignS(self, ctx:GramParser.IpAssignSContext):
+        if '%' in ctx.special_ID().getText(): # %[expr]
+            raise NameError("garbage assignation not supported")
+        else:
+            op = ctx.OP_INPLACE().getText()[0]
+            inst = self.sign_to_instruction[op]
+            self.visit(ctx.expr())
+            self.output += inst + " $grp, $a0\n"
+            self.output += "sw $a0, " + str(-ctx.expr().placeholder) + "($fp)\n"
+            self.rvisitExpr(ctx.expr())
+        return 0
+
+
+    #  WARNING !!!!
+    # The use of $s0 in this function is not safe at all
+    def visitSwap(self, ctx:GramParser.SwapContext):
+        # (ID | GARBAGEPOINTER) ',' (ID | GARBAGEPOINTER)
+        # |  PERCENTAGE '['expr']' ',' PERCENTAGE '['expr']'
+        if len(ctx.PERCENTAGE()) != 0:  # swap PERCENTAGE '['expr']' ',' PERCENTAGE '['expr']'
+            self.visit(ctx.expr(0))
+            self.output += "swre $s0, $a0\n"
+            self.visit(ctx.expr(1))
+            self.output += "swgr $a0, $s0\n"
+            self.output += "sw $a0, " + str(-ctx.expr(1).placeholder) + "($fp)\n"
+            self.output += "sw $s0, " + str(-ctx.expr(0).placeholder) + "($fp)\n"
+            self.rvisitExpr(ctx.expr(0))
+            self.rvisitExpr(ctx.expr(1))
+        else:                           # swap (ID | GARBAGEPOINTER) ',' (ID | GARBAGEPOINTER)
+            V1_ID = ctx.getChild(1).getText()
+            V2_ID = ctx.getChild(3).getText()
+            def swap_vars():
+                if V1_ID == "_gp":
+                    self.output += "swre $grp, $t0\n"
+                else:
+                    self.swap_var_in("$t0", "ACCESABLE", V1_ID)
+                if V2_ID == "_gp":
+                    self.output += "swre $grp, $t1\n"
+                else:
+                    self.swap_var_in("$t1", "ACCESABLE", V2_ID)
+
+            swap_vars()
+            self.output += "swre $t0, $t1\n"
+            swap_vars()
+
         return 0
 
     def visitIpAssign(self, ctx: GramParser.IpAssignContext):

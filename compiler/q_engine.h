@@ -453,7 +453,7 @@ private:
         T src;
         src = one_inp<N, 5>(program_memory);
         if(registers[$grp] % word_size != 0) {
-            cerr<< "segmantation fault (i have no idea what it is)" << endl;
+            cerr<< "The garbage pointer is not a multiple of 64" << endl;
             exit(EXIT_FAILURE);
         }
         T t = garbage[registers[$grp] / word_size];
@@ -486,6 +486,22 @@ private:
         T dest, idx;
         tie(dest, idx) = two_inp<N, 5, 5>(program_memory);
         registers[dest] ^= (garbage[registers[idx] / 64] >> (registers[idx] % 64)) & 1;
+    }
+
+    template <size_t N> // 37
+    void swap_garbage(bitset<N>& program_memory)
+    {
+        T src1, src2;
+        tie(src1, src2) = two_inp<N, 5, 5>(program_memory);
+        cerr << "swgr    R[src1] = " << registers[src1] <<
+         ", R[src2] = " << registers[src2] << endl; 
+        int bit1 = (garbage[registers[src1] / 64] >> (registers[src1] % 64)) & 1; 
+        int bit2 = (garbage[registers[src1] / 64] >> (registers[src2] % 64)) & 1; 
+
+        if (bit1 != bit2) {
+            garbage[registers[src1] / 64] ^= (1 << registers[src1] % 64);
+            garbage[registers[src2] / 64] ^= (1 << registers[src2] % 64);
+        }
     }
 
     template <size_t N> // 63
@@ -564,6 +580,7 @@ public:
             if(opcode == 34) {load_from_garbage(program_memory); continue;}
             if(opcode == 35) {negate(program_memory); continue;}
             if(opcode == 36) {read_garbage(program_memory); continue;}
+            if(opcode == 37) {swap_garbage(program_memory); continue;}
             if(opcode == 63) {end_program(program_memory);         break;}
             cerr<< "op code " << opcode << " non valido\n";
         }while(pc+registers[1] >= 0 && pc+registers[1] < N / 32 && iteration <= MAX_ITERATION);

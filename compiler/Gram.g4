@@ -34,6 +34,7 @@ stmt
     | condStat
     | doWhile ';'
     | returnStmt ';'
+    | swap ';'
     | print ';'
     ;
     
@@ -43,7 +44,7 @@ varDecl
     | TYPE ID '['INT']'
     ;
 
-assignment : ipAssign | reAssign;
+assignment : ipAssign | reAssign | ipAssignS | reAssignS;
 reAssign:ID '=' expr
         |ID'['expr']' '=' expr;
 ipAssign: ID OP_INPLACE expr
@@ -80,4 +81,6 @@ expr: expr OP_MULTIPLICATIVE expr
     ;
 
 print : PRINT_TOKEN expr;
-swap : (ID | special_ID) ',' (ID | special_ID);
+swap : 'swap'(ID | GARBAGEPOINTER) ',' (ID | GARBAGEPOINTER)
+    |  'swap' PERCENTAGE '['expr']' ',' PERCENTAGE '['expr']'
+    ;

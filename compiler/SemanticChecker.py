@@ -217,6 +217,11 @@ class SemanticChecker(GramVisitor):
         })
         return 0
 
+    def visitReAssignS(self, ctx: GramParser.ReAssignSContext):
+        if '%' in ctx.special_ID().getText(): # %[expr]
+            raise NameError("garabage re assignation is not supported")
+
+
     def visitTerminal(self, node):
         if node.getSymbol().type == self.parser.ID:
             if not any(var['ID'] == node.getText() for var in self.initizialed_variables):
