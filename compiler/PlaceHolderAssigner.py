@@ -42,6 +42,9 @@ class PlaceHolderAssigner(GramVisitor):
         if ctx.OP_ADDITIVE(): # expr OPERATOR expr
             expr1, expr2 = ctx.expr()
             expr1.placeholder = ctx.placeholder
+        if ctx.TILDE():
+            expr = ctx.expr(0)
+            expr.placeholder = ctx.placeholder
         if ctx.num(): # num
             pass
         if ctx.ID() and (not ctx.OPENSQUARE()): # ID

@@ -74,6 +74,9 @@ class CodeGenerator(GramVisitor):
             "+" : "add",
             "-" : "sub",
             "*" : "mul", 
+            "^" : "xor",
+            "#" : "z",
+            "@" : "had",
             "==" : "feq", 
             "<" : "flt", 
             "!=" : "fne"
@@ -82,6 +85,9 @@ class CodeGenerator(GramVisitor):
             "+" : "sub",
             "-" : "add",
             "*" : "mul", 
+            "^" : "xor",
+            "#" : "z",
+            "@" : "had",
             "==" : "feq", 
             "<" : "flt", 
             "!=" : "fne"   
@@ -424,6 +430,9 @@ class CodeGenerator(GramVisitor):
             self.output +=  inst + " $a0, $t1, $t2\n"
             self.output += "sw $t2, " + str(offset2) + "($fp)\n"
             self.output += "sw $t1, " + str(offset1) + "($fp)\n" 
+        if ctx.TILDE():
+            self.visit(ctx.expr(0))
+            self.output += "flia $a0\n"
         if ctx.num(): # num
             self.visit(ctx.num())
             return 0
@@ -494,6 +503,12 @@ class CodeGenerator(GramVisitor):
             self.output += "sw $t2, " + str(offset2) + "($fp)\n"
             self.rvisitExpr(expr1)
             self.rvisitExpr(expr2)
+        if ctx.TILDE():
+            offset = -ctx.placeholder
+            self.output += "sw $t0, " + str(offset) + "($fp)\n"
+            self.output += "flia $t0\n"
+            self.output += "sw $t0, " + str(offset) + "($fp)\n"
+            self.rvisitExpr(ctx.expr(0))
         if ctx.num(): # num
             offset = -ctx.placeholder
             self.output += "sw $a0, " + str(offset) + "($fp)\n"
@@ -695,7 +710,7 @@ class CodeGenerator(GramVisitor):
         if_id = str(self.current_block_id)
         self.blocks_info[if_id] = {} 
         # self.declare("INACCESABLE", "_if_cond"+if_id)
-        self.output += f"flip $a0\n"
+        self.output += f"flif $a0\n"
         self.output += f"caddi $a0, $u, #{if_id}@LENGTH\n"
         self.blocks_info[if_id]["ENTRY_LINE"] = self.output.current_line + 1 
         # self.swap_var_in("$a0", "INACCESABLE", "_if_cond"+if_id)
@@ -707,7 +722,7 @@ class CodeGenerator(GramVisitor):
                         self.blocks_info[if_id]["ENTRY_LINE"] 
             
         self.output += f"caddi $a0, $u, -#{if_id}@LENGTH\n"
-        self.output += f"flip $a0\n"
+        self.output += f"flif $a0\n"
         if ctx.ELSE():
             self.current_block_id += 1
             else_id = str(self.current_block_id)
@@ -759,9 +774,9 @@ class CodeGenerator(GramVisitor):
         # tcai
         self.output += "rebi $t2, $t1, 0\n"
         self.output += f"caddi $t2, $tur1, #{loop_block_id}@LENGTH#1\n" # REMEMBER TO ADD THIS TO THE REPLACE LABEL FUNCTION
-        self.output += "flip $t2\n"
+        self.output += "flif $t2\n"
         self.output += f"caddi $t2, $tur2 #{loop_block_id}@LENGTH#1\n"
-        self.output += "flip $t2\n"
+        self.output += "flif $t2\n"
         self.output += "rebi $t2, $t1, 0\n"
 
         # set tur1 = 0
@@ -794,12 +809,12 @@ class CodeGenerator(GramVisitor):
         # reversing
         self.output += "rebi $t2, $t1, 0\n"
         self.output += "caddi $t2, $tur2, -1\n"
-        self.output += "flip $t2\n"
+        self.output += "flif $t2\n"
         self.output += "caddi $t2, $tur1, -1\n"
-        self.output += "flip $t2\n"
+        self.output += "flif $t2\n"
         self.output += "rebi $t2, $t1, 0\n"
         
-        self.output += "flip $t0\n"
+        self.output += "flif $t0\n"
         self.swap_var_in("$tur1", "INACCESABLE", "oldTur1Save"+loop_block_id)
         self.swap_var_in("$tur2", "INACCESABLE", "oldTur2Save"+loop_block_id)
         self.deallocate("INACCESABLE", "oldTur1Save"+loop_block_id)

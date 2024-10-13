@@ -70,6 +70,7 @@ num : INT | FLOAT;
 expr: expr OP_MULTIPLICATIVE expr
     | expr OP_ADDITIVE expr
     | expr OP_COMPARATIVE expr
+    | TILDE expr
     | num
     | ID
     | GARBAGEPOINTER

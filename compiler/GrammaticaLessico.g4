@@ -4,13 +4,17 @@ EQUAL_SIGN : '=';
 TYPE : 'int' | 'float';
 VOID : 'void';
 SEMICOLON : ';';
-OP_ADDITIVE : '+' | '-';
+TILDE : '~';
+OP_ADDITIVE : '+' | '-' | '^' | '#' | '@';
 OP_MULTIPLICATIVE : '*' | '/';
 OP_INPLACE : '+='
      | '-='
      | '*='
      | '/='
      | '%='
+     | '^='
+     | '#='
+     | '@='
      ;
 OP_COMPARATIVE : '==' 
      | '!=' 

@@ -401,7 +401,7 @@ private:
     }
 
     template <size_t N> // 30 
-    void flip(bitset<N>& program_memory)
+    void flip_first_bit(bitset<N>& program_memory)
     {
         // cerr<< "flip" << endl;
         T src;
@@ -453,6 +453,15 @@ private:
         return;
     }
 
+    template <size_t N> // 34
+    void exclusive_or(bitset<N>& program_memory)
+    {
+        T dest, src;
+        tie(dest, src) = two_inp<N, 5, 5>(program_memory);
+        registers[dest] ^= registers[src];
+        return;
+    }
+
     template <size_t N> // 35
     void negate(bitset<N>& program_memory)
     {
@@ -461,6 +470,13 @@ private:
         registers[src] = -registers[src];
     }
 
+    template <size_t N> // 36
+    void flip_all_bits(bitset<N>& program_memory)
+    {
+        T dest;
+        dest = one_inp<N, 5>(program_memory);
+        registers[dest] = ~registers[dest];
+    }
 
     template <size_t N> // 63
     void end_program(bitset<N>& program_memory)
@@ -531,11 +547,13 @@ public:
             if(opcode == 27) {neg(program_memory);     continue;}
             if(opcode == 28) {two_case_swap_ur(program_memory);                continue;}
             if(opcode == 29) {read_bit_at_index(program_memory);            continue;}
-            if(opcode == 30) {flip(program_memory);            continue;}
+            if(opcode == 30) {flip_first_bit(program_memory);            continue;}
             if(opcode == 31) {output_reg(program_memory);            continue;}
             if(opcode == 32) {swap_registers(program_memory); continue;}
             if(opcode == 33) {throw_away(program_memory); continue;}
+            if(opcode == 34) {exclusive_or(program_memory); continue;}
             if(opcode == 35) {negate(program_memory); continue;}
+            if(opcode == 36) {flip_all_bits(program_memory); continue;}
             if(opcode == 63) {end_program(program_memory);         break;}
             cerr<< "op code " << opcode << " non valido\n";
         }while(pc+registers[1] >= 0 && pc+registers[1] < N / 32 && iteration <= MAX_ITERATION);
