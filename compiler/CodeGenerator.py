@@ -19,7 +19,8 @@ from .SemanticChecker import SemanticChecker
 # ___reassignS, ___ipassignS
 # ___visit, ___rvisit expr
 # swap arrays elements
-# 
+# Z
+# H gate
 #  
 # ___check ID, assign, ipassign
 # 
@@ -86,7 +87,7 @@ class CodeGenerator(GramVisitor):
             "-" : "add",
             "*" : "mul", 
             "^" : "xor",
-            "#" : "z",
+            "#" : "nop",
             "@" : "had",
             "==" : "feq", 
             "<" : "flt", 
@@ -481,7 +482,8 @@ class CodeGenerator(GramVisitor):
             offset2 = -expr2.placeholder
             self.output += "sw $t1, " + str(offset1) + "($fp)\n"
             self.output += "sw $t2, " + str(offset2) + "($fp)\n"
-            self.output += inst + " $t1, $t2\n"
+            if inst != "nop":
+                self.output += inst + " $t1, $t2\n"
             self.output += "sw $t2, " + str(offset2) + "($fp)\n"
             self.output += "sw $t1, " + str(offset1) + "($fp)\n"
             self.rvisitExpr(expr1)

@@ -1,6 +1,7 @@
 #include <iostream>
 #include <bitset>
 #include <tuple>
+#include <complex>
 #define MAX_ITERATION 10000000
 using namespace std;
 
@@ -17,7 +18,8 @@ private:
     static const int $grp = 28;
     static const int $sp = 29;
     static const int $fp = 30;
-    bool print_all = false;
+    static const bool print_all = false;
+    complex<float> coefficient; 
     T* memory = new T[mem_size];
     T* registers = new T[reg_size];
     bool computation_completed = false;
@@ -119,6 +121,14 @@ private:
                                src3.to_ullong(), 
                                src4.to_ullong()}; 
         return t;
+    }
+
+    int parity(T num, int n_bit_to_consider)
+    {
+        int count = 0;
+        for(int i = 0; i < n_bit_to_consider; i++)
+            if(num & (1 << i)) count++;
+        return count % 2;
     }
 
     template <size_t N> // 0
@@ -427,7 +437,7 @@ private:
                     << "MEM[" << -i-1 << "] = " << memory[mem_size-1-i] << endl;
                 }
         }else{
-            cout << "outr " << registers[src] << endl;
+            cout << "outr " << registers[src] << ", coefficient = " << coefficient << endl;
         }
     }
 
@@ -478,6 +488,16 @@ private:
         registers[dest] = ~registers[dest];
     }
 
+    template <size_t N> // 37
+    void z_gate(bitset<N>& program_memory)
+    {
+        T target, n_bits;
+        tie(target, n_bits) = two_inp<N, 5, 5>(program_memory);
+        if(parity(registers[target], registers[n_bits]) == 1)
+            coefficient *= -1;
+        return;
+    }
+
     template <size_t N> // 63
     void end_program(bitset<N>& program_memory)
     {
@@ -485,8 +505,9 @@ private:
     }
 
 public:    
-    engine()
+    engine() : coefficient(1.0f, 0.0f)
     {
+        complex<float> coefficient(1.0f, 0.0f);
         for(int i = 0; i < mem_size; i++) memory[i] = 0;
         for(int i = 0; i < reg_size; i++) registers[i] = 0;
         registers[1] = 1;
@@ -516,45 +537,47 @@ public:
                 opcode[i] = program_memory[(pc*32)+n_bit_opcode-i-1];
             // if(print_all)
             //     cerr<< " " << opcode << " " << endl;
-            // transform this in a switch case
-            if(opcode == 0) {add(program_memory);  continue;}
-            if(opcode == 1) {addi(program_memory); continue;}
+            // you can't efficently transform this in a switch case
+            // beacause the opcode is not an integer but a bitset
+            if(opcode == 0) {add(program_memory);   continue;}
+            if(opcode == 1) {addi(program_memory);  continue;}
             if(opcode == 2) {cadd(program_memory);  continue;}
             if(opcode == 3) {caddi(program_memory); continue;}
-            if(opcode == 4) {sub(program_memory);  continue;}
-            if(opcode == 5) {subi(program_memory); continue;}
+            if(opcode == 4) {sub(program_memory);   continue;}
+            if(opcode == 5) {subi(program_memory);  continue;}
             if(opcode == 6) {csub(program_memory);  continue;}
             if(opcode == 7) {csubi(program_memory); continue;}
-            if(opcode == 8) {div(program_memory);            continue;}
-            if(opcode == 9) {divi(program_memory);          continue;}
-            if(opcode == 10) {cdiv(program_memory);     continue;}
-            if(opcode == 11) {cdivi(program_memory);      continue;}
-            if(opcode == 12) {mul(program_memory); continue;}
+            if(opcode == 8) {div(program_memory);   continue;}
+            if(opcode == 9) {divi(program_memory);  continue;}
+            if(opcode == 10) {cdiv(program_memory); continue;}
+            if(opcode == 11) {cdivi(program_memory);continue;}
+            if(opcode == 12) {mul(program_memory);  continue;}
             if(opcode == 13) {muli(program_memory); continue;}
-            if(opcode == 14) {cmul(program_memory);  continue;}
-            if(opcode == 15) {cmuli(program_memory);     continue;}
-            if(opcode == 16) {swap_word_in_memory(program_memory);    continue;}
-            if(opcode == 17) {xor_sign_extended_immediate(program_memory);               continue;}
-            if(opcode == 18) {load_upper(program_memory);                 continue;}
-            if(opcode == 19) {load_upperi(program_memory);          continue;}
-            if(opcode == 20) {flip_on_equal(program_memory);   continue;}
-            if(opcode == 21) {flip_on_equali(program_memory); continue;}
+            if(opcode == 14) {cmul(program_memory);         continue;}
+            if(opcode == 15) {cmuli(program_memory);        continue;}
+            if(opcode == 16) {swap_word_in_memory(program_memory);      continue;}
+            if(opcode == 17) {xor_sign_extended_immediate(program_memory);  continue;}
+            if(opcode == 18) {load_upper(program_memory);   continue;}
+            if(opcode == 19) {load_upperi(program_memory);  continue;}
+            if(opcode == 20) {flip_on_equal(program_memory);    continue;}
+            if(opcode == 21) {flip_on_equali(program_memory);   continue;}
             if(opcode == 22) {flip_on_not_equal(program_memory);    continue;}
-            if(opcode == 23) {flip_on_not_equali(program_memory);        continue;}
-            if(opcode == 24) {flip_on_less_than(program_memory);       continue;}
-            if(opcode == 25) {flip_on_less_thani(program_memory);  continue;}
+            if(opcode == 23) {flip_on_not_equali(program_memory);   continue;}
+            if(opcode == 24) {flip_on_less_than(program_memory);    continue;}
+            if(opcode == 25) {flip_on_less_thani(program_memory);   continue;}
             if(opcode == 26) {no_op(program_memory);                continue;}
-            if(opcode == 27) {neg(program_memory);     continue;}
-            if(opcode == 28) {two_case_swap_ur(program_memory);                continue;}
-            if(opcode == 29) {read_bit_at_index(program_memory);            continue;}
-            if(opcode == 30) {flip_first_bit(program_memory);            continue;}
-            if(opcode == 31) {output_reg(program_memory);            continue;}
-            if(opcode == 32) {swap_registers(program_memory); continue;}
-            if(opcode == 33) {throw_away(program_memory); continue;}
+            if(opcode == 27) {neg(program_memory);  continue;}
+            if(opcode == 28) {two_case_swap_ur(program_memory); continue;}
+            if(opcode == 29) {read_bit_at_index(program_memory);    continue;}
+            if(opcode == 30) {flip_first_bit(program_memory);   continue;}
+            if(opcode == 31) {output_reg(program_memory);   continue;}
+            if(opcode == 32) {swap_registers(program_memory);   continue;}
+            if(opcode == 33) {throw_away(program_memory);   continue;}
             if(opcode == 34) {exclusive_or(program_memory); continue;}
-            if(opcode == 35) {negate(program_memory); continue;}
-            if(opcode == 36) {flip_all_bits(program_memory); continue;}
-            if(opcode == 63) {end_program(program_memory);         break;}
+            if(opcode == 35) {negate(program_memory);   continue;}
+            if(opcode == 36) {flip_all_bits(program_memory);    continue;}
+            if(opcode == 37) {z_gate(program_memory);   continue;}
+            if(opcode == 63) {end_program(program_memory);  break;}
             cerr<< "op code " << opcode << " non valido\n";
         }while(pc+registers[1] >= 0 && pc+registers[1] < N / 32 && iteration <= MAX_ITERATION);
         if(pc+registers[1] < 0 || pc + registers[1] >= N / 32){
