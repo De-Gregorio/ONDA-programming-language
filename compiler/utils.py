@@ -4,6 +4,7 @@ import shutil
 from antlr4 import CommonTokenStream
 from antlr4.tree.Tree import TerminalNodeImpl
 import pydot
+import sys
 
 
 def clean_dir(path  = ".\\antlr_files",
@@ -77,5 +78,19 @@ def create_graph(tree, rule_names):
 
 def riconfigura_engine(file_path = "run_engine.cpp"):
     name_length = file_path.find(".")
-    compilation = subprocess.run(["g++",file_path, "-o", file_path[:name_length] + ".exe"], capture_output=True, text=True)
+    compilation = subprocess.run(["g++", file_path, "-o", file_path[:name_length] + ".exe"], capture_output=True, text=True)
     return compilation 
+
+def get_files():
+    """used to get the file names from argv
+    expected inp:
+    python main.py input.onda outfilename
+    """
+    SourceFileName = sys.argv[1]
+    if len(sys.argv) < 3:
+        OutFileName = "out.exe"
+    else:
+        OutFileName = sys.argv[2]  
+    if OutFileName[-4:] != ".exe":
+        OutFileName += ".exe"
+    return SourceFileName, OutFileName

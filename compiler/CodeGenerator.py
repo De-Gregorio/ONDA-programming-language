@@ -4,35 +4,6 @@ from .antlr_files.GramParser import GramParser
 from antlr4.tree.Tree import TerminalNodeImpl
 from .PlaceHolderAssigner import PlaceHolderAssigner
 from .SemanticChecker import SemanticChecker
-# TO DO 
-# ___CLEAN AR
-# GET_AARGS & CLEAN_AARGS
-#    __ID/num will be passed by copy, and the value in the ar will be thrown away
-#    const ID/num will be passed by copy, and the value in the ar will be reversed
-#    ID/num& will be passed by swap, the modified value in the ar will be put in the original var
-# ___tell the engine the entry point of the program
-# ___return a value
-# ___assignment
-# ___ifCond
-# ___doWhile
-# ___specialid
-# ___reassignS, ___ipassignS
-# ___visit, ___rvisit expr
-# swap arrays elements
-# Z
-# H gate
-#  
-# ___check ID, assign, ipassign
-# 
-#
-# problem: the variable gets added in the enviroment also if the if branch in which they are
-# declared is not executed 
-# high level way to access garbage 
-# 
-# problem: when returning, the values in the expr placeholder that could be reversed that are not already
-# been reversed are left in the free memory with non-zero value. a possible solution could be by defining 
-# the temporaries as an inacessable variable
-
 
 class IncreadiblyCapableString():
     """this object just count at which line of the 
@@ -43,8 +14,6 @@ class IncreadiblyCapableString():
         self.debug = debug
 
     def __iadd__(self, stringa):
-        if stringa == "eop\n":
-            self += "outr 31\n"
         self.value += stringa
         if stringa[0] != "#":
             self.current_line += 1
@@ -88,7 +57,7 @@ class CodeGenerator(GramVisitor):
             "*" : "mul", 
             "^" : "xor",
             "#" : "nop",
-            "@" : "had",
+            "@" : "nop",
             "==" : "feq", 
             "<" : "flt", 
             "!=" : "fne"   
@@ -157,7 +126,6 @@ class CodeGenerator(GramVisitor):
             self.pha.reset_values()
             temporaries_needed = self.pha.visit(ctx.body()) 
             self.blocks_info[F_ID]["TEMPORARIES_NEEDED"] = temporaries_needed
-            print("temp needed ", temporaries_needed)
             self.declare("INACCESABLE", "temporaries"+str(self.current_block_id), size = temporaries_needed)
             self.set_top_of_the_stack() 
             self.visit(ctx.body())
@@ -166,7 +134,6 @@ class CodeGenerator(GramVisitor):
             raise NameError("write a body, MOVE")
             # self.output += "nop\n" # WRONG YOU MUST RETURN ANYWAYS  
         
-        print(self.fp_offset, self.enviroment, self.current_F_ID)
         # self.current_block_id -= 1
         self.enviroment = old_env
         self.vars_sizes = old_vars_size
@@ -225,9 +192,7 @@ class CodeGenerator(GramVisitor):
             self.output += "sw $v0, 1($sp)\n"
             self.output += "addi $sp, 1\n"
         self.output += f"# start return of {self.current_F_ID}\n"
-        print(self.enviroment, self.fp_offset)
         self.clean_local_vars()
-        print(self.enviroment, self.fp_offset)
         if self.current_F_ID == "main":
             self.output += "eop\n"
             self.enviroment = save_env
@@ -480,12 +445,12 @@ class CodeGenerator(GramVisitor):
             expr1, expr2 = ctx.expr()
             offset1 = -expr1.placeholder
             offset2 = -expr2.placeholder
-            self.output += "sw $t1, " + str(offset1) + "($fp)\n"
-            self.output += "sw $t2, " + str(offset2) + "($fp)\n"
             if inst != "nop":
+                self.output += "sw $t1, " + str(offset1) + "($fp)\n"
+                self.output += "sw $t2, " + str(offset2) + "($fp)\n"
                 self.output += inst + " $t1, $t2\n"
-            self.output += "sw $t2, " + str(offset2) + "($fp)\n"
-            self.output += "sw $t1, " + str(offset1) + "($fp)\n"
+                self.output += "sw $t2, " + str(offset2) + "($fp)\n"
+                self.output += "sw $t1, " + str(offset1) + "($fp)\n"
             self.rvisitExpr(expr1)
             self.rvisitExpr(expr2)
         if ctx.OP_MULTIPLICATIVE() or ctx.OP_COMPARATIVE(): # expr OP_MULTIPLICATIVE/COMPARATIVE expr
@@ -743,12 +708,9 @@ class CodeGenerator(GramVisitor):
         if not ctx.CONST():
             not_const_vars = self.idg.get_ids(ctx.expr())
             self.not_const_vars.extend(not_const_vars)
-            print(self.not_const_vars)
             self.rvisitExpr(ctx.expr())
             self.not_const_vars = [var for var in self.not_const_vars if not (var in not_const_vars)]
-            print(self.not_const_vars)
         else:
-            print(self.not_const_vars, "hwew")
             self.rvisitExpr(ctx.expr())
 
     def visitDoWhile(self, ctx: GramParser.DoWhileContext):
