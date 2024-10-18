@@ -1,7 +1,13 @@
-<h1>THE QUANTUM ONDA PROGRAMMING LANGUAGE</h1>
+# THE QUANTUM ONDA PROGRAMMING LANGUAGE
 ONDA is a high-level programming language similar to C that can automatically manage garbage collection. This project implements an engine that simulates a potential quantum architecture along with its associated instruction set architecture (ISA). Each instruction used in the engine can be realized by a quantum circuit on a quantum computer.
 
-<h1>INSTALLATION</h1>
+# INSTALLATION
+Intall antlr
+
+```
+pip install antlr
+```
+
 Clone the repositary on your machine. Then some files must be compiled, to do so run the setup.py file the folder.
 
 ```
@@ -65,7 +71,7 @@ int a = 0;
 a @= 8; // a is now in a even superposition of the values from  0 to 255
 ```
 
-<h1>USAGE</h1>
+# USAGE
 Write a file, possibly with .onda extension.
 
 ```C
@@ -93,7 +99,7 @@ comp n1:	(-0.5+0j)		1	0.25000
 comp n0:	(0.5+0j)		2	0.25000	
 ```
 
-<h1>COMMON BUGS</h1>
+# COMMON BUGS
 The project is still in a early stage and many features are not implemented yet. 
 <h2>Blocks</h2>
 Declaring a variable in a block, or more generally, expecting any C-like block behavior will result in an error.
@@ -129,7 +135,8 @@ int main()
 The H gate is really powerful but it also have an exponantial overhead, so appling it multiple times might lead to an unfeasible number of "parallel" computations.
 <h2>Edge cases</h2>
 Any non-trivial edge case might lead to an error.
-<h1>Code example</h1>
+
+# Code example
 In this code example is shown how a grover search might be implemented. 
 
 ```C
@@ -179,7 +186,11 @@ comp n1:	0j			0	0.00000
 comp n0:	0j			3	0.00000	
 ```
 
-<h1>Future Versions</h2>
+# Future Versions
 <p>As afore mentioned, the Y gate will be implemented. Then an in-depth documentation of the language wil also be written.</p>
 
 The ONDA programming language is intended as a prototype to demonstrate the tasks that quantum computers can handle and how poorly classical computers perform at these tasks. The compiler uses a stack machine model to translate the code into basic instructions. While this model is simple, it is slow and does not scale well. Although the code can be optimized in many ways, doing so is neither the best approach nor the main objective. In fact, the most effective optimization might be to start from scratch and explore other models for implementing such a programming language. This project does not aim to create the fastest quantum simulator. Instead, it seeks to inspire researchers to explore new models for quantum computation and showcase their potential. Despite the strict limitations of the field, it demonstrates that new abstractions are possible and crucial for achieving greater progress.
+
+# Acknowledgments
+
+This project uses the [ANTLR](https://www.antlr.org/) Python package for parsing. We thank the ANTLR community for their contributions.
