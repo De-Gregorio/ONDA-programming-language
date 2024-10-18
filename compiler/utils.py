@@ -7,38 +7,45 @@ import pydot
 import sys
 
 
-def clean_dir(path  = ".\\antlr_files",
-               file_da_salvare = []):
+def clean_dir(path, file_da_salvare = []):
     if not os.path.exists(path):
-        print(path, "doesn't not exist, no cleaning performed")
+        print(path, "doesn't  exist, no cleaning performed")
         return
     for file in os.listdir(path):
-        if (not file in file_da_salvare) and os.path.isfile(os.path.join(path, file)): 
+        if (not (file in file_da_salvare))\
+            and os.path.isfile(os.path.join(path, file)): 
             os.remove(os.path.join(path, file))
     return 0
 
-def build_grammar(path = ".\\antlr_files", main_gram = "Gram.g4", 
+def build_grammar(folder = "antlr_files", main_gram = "Gram.g4", 
                   other_grams = ["GrammaticaLessico.g4"]):
-    original_dir = os.getcwd()
-    if not os.path.exists(path):
-        os.makedirs(path)
-    os.chdir(path)
-    print(os.getcwd())
-    other_grams += [main_gram]
-    for gram in other_grams:
-        shutil.move(os.path.join(original_dir, gram), 
-                    '.')
-    command = ["antlr4", "-Dlanguage=Python3", main_gram, "-visitor"]
+    
+    main_dir = os.path.dirname(os.path.abspath(__file__))
+    if not os.path.exists(os.path.join(main_dir, folder)):
+        os.makedirs(os.path.join(main_dir, folder))
+    else: 
+        clean_dir(os.path.join(main_dir, folder))
+
+    all_grams = [main_gram] + other_grams
+    for gram in all_grams:
+        shutil.move(os.path.join(main_dir, gram),
+                    os.path.join(main_dir, folder))
+    command = ["antlr4", "-Dlanguage=Python3", os.path.join(main_dir, folder, main_gram), "-visitor"]
     result = subprocess.run(command, capture_output=True, text=True)
     if result.stderr + result.stdout != "" or result.returncode != 0:
         print("during compilation of grammar: ")
-        print(result.stderr +  result.stdout)
-    for gram in other_grams:
-        shutil.move(gram,
-                    original_dir)
-
-    os.chdir(original_dir)
+        print(result.stderr + result.stdout)
+    for gram in all_grams:
+        shutil.move(os.path.join(main_dir, folder, gram), 
+                    os.path.join(main_dir),)
     return 1
+
+def compile_engine():
+    main_dir = os.path.dirname(os.path.abspath(__file__))
+    inp_file_path = os.path.join(main_dir, "run_engine.cpp")
+    out_file_path = os.path.join(main_dir, "run_engine.exe")
+    compilation = subprocess.run(["g++", inp_file_path, "-o", out_file_path], capture_output=True, text=True)
+    return compilation 
 
 def create_graph(tree, rule_names):
     # Creiamo il grafo
@@ -76,10 +83,19 @@ def create_graph(tree, rule_names):
     graph.write_png('parse_tree.png')
     return graph
 
-def riconfigura_engine(file_path = "run_engine.cpp"):
-    name_length = file_path.find(".")
-    compilation = subprocess.run(["g++", file_path, "-o", file_path[:name_length] + ".exe"], capture_output=True, text=True)
-    return compilation 
+
+def run_from_assem_file(): # usefull when manual changes have been made to the assembly
+    from .compiler import assemble
+    with open("out.qas", "r") as file:
+        assembly = file.read()
+    binary, arg = assemble(assembly)
+    with open("out.exe", "w") as out_file:
+        out_file.write(binary)
+    print(arg)
+    execution =  subprocess.run(["./compiler/run_engine.exe", str(arg), "out.exe"], capture_output=True, text=True)
+    print("STDOUT:\n", execution.stdout)
+    print("STDERR:\n", execution.stderr)
+    print("computation returned:", execution.returncode)
 
 def get_files():
     """used to get the file names from argv
@@ -94,3 +110,7 @@ def get_files():
     if OutFileName[-4:] != ".exe":
         OutFileName += ".exe"
     return SourceFileName, OutFileName
+
+def setup(only_compile_engine = False):
+    print(compile_engine().stderr)
+    if not only_compile_engine: build_grammar()

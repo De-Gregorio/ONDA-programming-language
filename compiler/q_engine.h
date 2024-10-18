@@ -10,7 +10,7 @@ using namespace std;
 
 // 6 5 5 8 8
 
-template<typename T>
+template<typename T, size_t N>
 class engine
 {
 private:
@@ -26,6 +26,7 @@ private:
     const int computation_number;  
     int final_value;
     int sub_computation_count;
+    bitset<n_bit_opcode> opcode;
     complex<double> coefficient; 
     T* memory = new T[mem_size];
     T* registers = new T[reg_size];
@@ -34,7 +35,6 @@ private:
 
     uint64_t pc = 0;    
 
-    template <size_t N>
     void reverseBitset(bitset<N>& bits)
     {
         int n = bits.size();
@@ -48,7 +48,7 @@ private:
     void sign_extend(T& num, int msf_bit)
     {
         // Calcola il bit di segno di num
-        int32_t sign_bit = 1 << (msf_bit - 1);
+        T sign_bit = 1 << (msf_bit - 1);
         
         // Se il bit di segno è impostato, estendi il segno
         if (num & sign_bit) 
@@ -56,7 +56,7 @@ private:
             num |= - (1 << msf_bit);
     }
 
-    template<size_t N, size_t n_bit_src1>
+    template<size_t n_bit_src1>
     T one_inp(bitset<N>& program_memory)
     {
         bitset<n_bit_src1> src1;
@@ -66,7 +66,7 @@ private:
         return src1.to_ullong();
     }
     
-    template<size_t N, size_t n_bit_src1, size_t n_bit_src2> 
+    template<size_t n_bit_src1, size_t n_bit_src2> 
     tuple<T, T> two_inp(bitset<N>& program_memory)
     {
         bitset<n_bit_src1> src1;
@@ -82,7 +82,7 @@ private:
         return t; 
     }
 
-    template<size_t N, size_t n_bit_src1, size_t n_bit_src2, size_t n_bit_src3> 
+    template<size_t n_bit_src1, size_t n_bit_src2, size_t n_bit_src3> 
     tuple<T, T, T> three_inp(bitset<N>& program_memory)
     {
         bitset<n_bit_src1> src1;
@@ -103,8 +103,7 @@ private:
         return t;
     }
 
-    template<size_t N, size_t n_bit_src1, size_t n_bit_src2, size_t n_bit_src3,
-    size_t n_bit_src4> 
+    template<size_t n_bit_src1, size_t n_bit_src2, size_t n_bit_src3, size_t n_bit_src4> 
     tuple<T, T, T, T> four_inp(bitset<N>& program_memory)
     {
         bitset<n_bit_src1> src1;
@@ -199,174 +198,187 @@ private:
         return count % 2;
     }
 
-    void check_errors(long long iteration, int N)
+    void check_errors(long long iteration)
     {
         if(pc+registers[1] < 0 || pc + registers[1] >= N / 32){
-            cerr << "messed up pc = " << pc+registers[1] << endl;
+            cerr << "the program counter pc = " << pc+registers[1]+1 << 
+            ", took either values over the size of the program(" << N/32 << 
+            ") or is negative " << endl;
             print_state();
             exit(EXIT_FAILURE);
         }
         if(iteration > MAX_ITERATION){
-            cerr<< "computazione interrotta perchè in loop infinito" << endl;
+            cerr << "compuation stopped because it passed the maximum_number " <<
+            "of execuetable instructions: " << MAX_ITERATION << endl;
+            cerr << "If this is not beacause of an infinte loop, raise the value of " << 
+            "the MAX_ITERATION macro int the run_engine.cpp file and run the setup file" <<
+            " to compile it again"  << endl; 
             exit(EXIT_FAILURE);
         }  
         int somma = 0;
         for(int i = 0; i < 32; i++)
             somma += registers[i] + memory[mem_size-1-i];
         if(somma != (mem_size*2-2) + registers[$grp]){
-            cerr << "forza napoli "<< (mem_size*2-2) + registers[$grp] << endl;
+            cerr << "not all values of the memory are set to 0" << endl;
             print_state();
             exit(EXIT_FAILURE);
         }
         return;
     }
 
-    template <size_t N> // 0
+    void read_opcode(bitset<N>& program_memory)
+    {
+        for(int i = 0; i < n_bit_opcode; i ++) 
+            opcode[i] = program_memory[(pc*32)+n_bit_opcode-i-1];
+        return;
+    }
+    
+    // 0
     void add(bitset<N>& program_memory)
     {
         // cerr<< "add" << endl;
         T dest, src;
-        tie(dest, src) = two_inp<N, 5, 5>(program_memory);
+        tie(dest, src) = two_inp<5, 5>(program_memory);
         registers[dest] += registers[src];
     }
 
-    template <size_t N> // 1
+    // 1
     void addi(bitset<N>& program_memory)
     {
         // cerr<< "addi"<< endl;
         T dest, imm;
-        tie(dest, imm) = two_inp<N, 5, 21>(program_memory);
+        tie(dest, imm) = two_inp<5, 21>(program_memory);
         sign_extend(imm, 21);
         registers[dest] += imm;
     }
 
-    template <size_t N> // 2
+    // 2
     void cadd(bitset<N>& program_memory)
     {
         cerr<< "cadd" << endl;
         T cond, dest, src;
-        tie(cond, dest, src) = three_inp<N, 5, 5, 5>(program_memory);
+        tie(cond, dest, src) = three_inp<5, 5, 5>(program_memory);
         if(registers[cond] & 1) registers[dest] += registers[src];
     }
 
-    template <size_t N> // 3
+    // 3
     void caddi(bitset<N>& program_memory)
     {
         // cerr<< "caddi"<< endl;
         T cond, dest, imm;
-        tie(cond, dest, imm) = three_inp<N, 5, 5, 16>(program_memory);
+        tie(cond, dest, imm) = three_inp<5, 5, 16>(program_memory);
         sign_extend(imm, 16);
         if(registers[cond] & 1) registers[dest] += imm;
     }
 
-    template <size_t N> // 4
+    // 4
     void sub(bitset<N>& program_memory)
     {
         T dest, src;
-        tie(dest, src) = two_inp<N, 5, 5>(program_memory);
+        tie(dest, src) = two_inp<5, 5>(program_memory);
         registers[dest] -= registers[src];
     }
 
-    template <size_t N> // 5
+    // 5
     void subi(bitset<N>& program_memory)
     {
         T dest, imm;
-        tie(dest, imm) = two_inp<N, 5, 21>(program_memory);
+        tie(dest, imm) = two_inp<5, 21>(program_memory);
         sign_extend(imm, 21);
         registers[dest] -= imm;
     }
 
-    template <size_t N> // 6
+    // 6
     void csub(bitset<N>& program_memory)
     {
         T cond, dest, src;
-        tie(cond, dest, src) = three_inp<N, 5, 5, 5>(program_memory);
+        tie(cond, dest, src) = three_inp<5, 5, 5>(program_memory);
         if(registers[cond] & 1) registers[dest] -= registers[src];
     }
 
-    template <size_t N> // 7
+    // 7
     void csubi(bitset<N>& program_memory)
     {
         T cond, dest, imm;
-        tie(cond, dest, imm) = three_inp<N, 5, 5, 16>(program_memory);
+        tie(cond, dest, imm) = three_inp<5, 5, 16>(program_memory);
         sign_extend(imm, 16);
         if(registers[cond] & 1) registers[dest] -= imm;
     }
 
-    template <size_t N> // 8 
+    // 8 
     void div(bitset<N>& program_memory)
     {
         T dest, src1, src2;
-        tie(dest, src1, src2) = three_inp<N, 5, 5, 5>(program_memory);
+        tie(dest, src1, src2) = three_inp<5, 5, 5>(program_memory);
         registers[dest] ^= registers[src1] / registers[src2];
     }
 
-    template <size_t N> // 9
+    // 9
     void divi(bitset<N>& program_memory)
     {
         T dest, src, imm;
-        tie(dest, src, imm) = three_inp<N, 5, 5, 16>(program_memory);
+        tie(dest, src, imm) = three_inp<5, 5, 16>(program_memory);
         sign_extend(imm, 16);
         registers[dest] ^= registers[src] / imm;
     }
 
-    template <size_t N> // 10
+    // 10
     void cdiv(bitset<N>& program_memory)
     {
         T cond, dest, src1, src2;
-        tie(cond, dest, src1, src2) = four_inp<N, 5, 5, 5, 5>(program_memory);
+        tie(cond, dest, src1, src2) = four_inp<5, 5, 5, 5>(program_memory);
         if(registers[cond] & 1) registers[dest] ^= registers[src1] / registers[src2];
     }
 
-    template <size_t N> // 11
+    // 11
     void cdivi(bitset<N>& program_memory)
     {
         T cond, dest, src, imm;
-        tie(cond, dest, src, imm) = four_inp<N, 5, 5, 5, 11>(program_memory);
+        tie(cond, dest, src, imm) = four_inp<5, 5, 5, 11>(program_memory);
         sign_extend(imm, 11);
         if(registers[cond] & 1) registers[dest] ^= registers[src] / imm;
     }
 
-    template <size_t N> // 12
+    // 12
     void mul(bitset<N>& program_memory)
     {
         T dest, src1, src2;
-        tie(dest, src1, src2) = three_inp<N, 5, 5, 5>(program_memory);
+        tie(dest, src1, src2) = three_inp<5, 5, 5>(program_memory);
         registers[dest] ^= registers[src1] * registers[src2];
     }
 
-    template <size_t N> // 13
+    // 13
     void muli(bitset<N>& program_memory)
     {
         // cerr<< "muli "<< endl;
         T dest, src1, imm;
-        tie(dest, src1, imm) = three_inp<N, 5, 5, 16>(program_memory);
+        tie(dest, src1, imm) = three_inp<5, 5, 16>(program_memory);
         sign_extend(imm, 16);
         registers[dest] ^= registers[src1] * imm;
     }
 
-    template <size_t N> // 14
+    // 14
     void cmul(bitset<N>& program_memory)
     {
         T cond, dest, src1, src2;
-        tie(cond, dest, src1, src2) = four_inp<N, 5, 5, 5, 5>(program_memory);
+        tie(cond, dest, src1, src2) = four_inp<5, 5, 5, 5>(program_memory);
         if(registers[cond] & 1) registers[dest] ^= registers[src1] * registers[src2];
     }
 
-    template <size_t N> // 15
+    // 15
     void cmuli(bitset<N>& program_memory)
     {
         T cond, dest, src, imm;
-        tie(cond, dest, src, imm) = four_inp<N, 5, 5, 5, 11>(program_memory);
+        tie(cond, dest, src, imm) = four_inp<5, 5, 5, 11>(program_memory);
         sign_extend(imm, 11);
         if(registers[cond] & 1) registers[dest] ^= registers[src] * imm;
     }
 
-    template <size_t N>  // 16
+    // 16
     void swap_word_in_memory(bitset<N>& program_memory)
     {
         T src1, src2, offset;
-        tie(src1, src2, offset) = three_inp<N, 5, 5, 16>(program_memory);
+        tie(src1, src2, offset) = three_inp<5, 5, 16>(program_memory);
         sign_extend(offset, 16);
         // cerr<< "offset = " << offset << endl;
         // cerr<< "sw R" << src1 << "  MEM " <<  registers[src2] + offset 
@@ -376,103 +388,103 @@ private:
         memory[registers[src2] + offset] = temp;
     }
 
-    template <size_t N> // 17
+    // 17
     void xor_sign_extended_immediate(bitset<N>& program_memory)
     {
         T src, imm;
-        tie(src, imm) = two_inp<N, 5, 21>(program_memory);
+        tie(src, imm) = two_inp<5, 21>(program_memory);
         sign_extend(imm, 21);
         registers[src] ^= imm;
     }
 
-    template <size_t N> // 18
+    // 18
     void load_upper(bitset<N>& program_memory)
     {
         // to implement
     }
 
-    template <size_t N> // 19
+    // 19
     void load_upperi(bitset<N>& program_memory)
     {
         // to implement
     }
 
-    template <size_t N> // 20
+    // 20
     void flip_on_equal(bitset<N>& program_memory)
     {
         // cerr<< "feq" << endl;
         T dest, src1, src2;
-        tie(dest, src1, src2) = three_inp<N, 5, 5, 5>(program_memory);
+        tie(dest, src1, src2) = three_inp<5, 5, 5>(program_memory);
         if(registers[src1] == registers[src2]) registers[dest] ^= 1;
     }
 
-    template <size_t N> // 21
+    // 21
     void flip_on_equali(bitset<N>& program_memory)
     {
         cerr<< "feqi" << endl;
         T dest, src, imm;
-        tie(dest, src, imm) = three_inp<N, 5, 5, 16>(program_memory);
+        tie(dest, src, imm) = three_inp<5, 5, 16>(program_memory);
         sign_extend(imm, 16);
         if(registers[src] == imm) registers[dest] ^= 1; 
     }
     
-    template <size_t N> // 22
+    // 22
     void flip_on_not_equal(bitset<N>& program_memory)
     {
         T dest, src1, src2;
-        tie(dest, src1, src2) = three_inp<N, 5, 5, 5>(program_memory);
+        tie(dest, src1, src2) = three_inp<5, 5, 5>(program_memory);
         if(registers[src1] != registers[src2]) registers[dest] ^= 1;
     }    
 
-    template <size_t N> // 23
+    // 23
     void flip_on_not_equali(bitset<N>& program_memory)
     {
         cerr<< "fnei: ";
         T dest, src, imm;
-        tie(dest, src, imm) = three_inp<N, 5, 5, 16>(program_memory);
+        tie(dest, src, imm) = three_inp<5, 5, 16>(program_memory);
         sign_extend(imm, 16);
         if(registers[src] != imm)registers[dest] ^= 1; 
     }  
 
-    template <size_t N> // 24
+    // 24
     void flip_on_less_than(bitset<N>& program_memory)
     {
         T dest, src1, src2;
-        tie(dest, src1, src2) = three_inp<N, 5, 5, 5>(program_memory);
+        tie(dest, src1, src2) = three_inp<5, 5, 5>(program_memory);
         if(registers[src1] < registers[src2]) registers[dest] ^= 1;
     }
 
-    template <size_t N> // 25
+    // 25
     void flip_on_less_thani(bitset<N>& program_memory)
     {
         T dest, src1, imm;
-        tie(dest, src1, imm) = three_inp<N, 5, 5, 16>(program_memory);
+        tie(dest, src1, imm) = three_inp<5, 5, 16>(program_memory);
         sign_extend(imm, 16);
         if(registers[src1] < imm) registers[dest] ^= 1;
     }
 
-    template <size_t N> // 26
+    // 26
     void no_op(bitset<N>& program_memory)
     {
 
     }
 
-    template <size_t N> // 27
+    // 27
     void neg(bitset<N>& program_memory)
     {
         T src;
-        src = one_inp<N, 5>(program_memory);
+        src = one_inp<5>(program_memory);
         registers[src] = -registers[src];
     }
 
-    template <size_t N> // 28
+    // 28
     void two_case_swap_ur(bitset<N>& program_memory)
     {
         // cerr<< "tcsu: ";
         // cerr<< registers[1]<< " " <<
         //         registers[nur1] << " " << registers[2] <<
         T nur1, nur2, activation, counter, nur;
-        tie(nur1, nur2, activation, counter) = four_inp<N, 5, 5, 5, 5>(program_memory);
+        tie(nur1, nur2, activation, counter) = four_inp<5, 5, 5, 5>(program_memory);
         if((registers[counter] % 2) == registers[activation]){  
             nur = nur1;
         }else{
@@ -491,21 +503,21 @@ private:
 
     } 
 
-    template <size_t N> // 29
+    // 29
     void read_bit_at_index(bitset<N>& program_memory)
     {
         // cerr<< "rebi" << endl;
         T dest, src1, src2;
-        tie(dest, src1, src2) = three_inp<N, 5, 5, 5>(program_memory);
+        tie(dest, src1, src2) = three_inp<5, 5, 5>(program_memory);
         registers[dest] ^= (registers[src1] >> registers[src2]) & 1;
     }
 
-    template <size_t N> // 30 
+    // 30 
     void flip_first_bit(bitset<N>& program_memory)
     {
         // cerr<< "flip" << endl;
         T src;
-        src = one_inp<N, 5>(program_memory);
+        src = one_inp<5>(program_memory);
         registers[src] ^= 1;
         // registers[src] = registers[src] ^ (~0); flip all bits 
         // registers[src] = !registers[src]; non unitary
@@ -526,11 +538,11 @@ private:
             }
     }
 
-    template <size_t N> // 31
+    // 31
     void output_reg(bitset<N>& program_memory)  
     {
         T src;
-        src = one_inp<N, 5>(program_memory);
+        src = one_inp<5>(program_memory);
         if(src == 31){
             print_state();
         }else{
@@ -538,11 +550,11 @@ private:
         }
     }
 
-    template <size_t N> // 32
+    // 32
     void swap_registers(bitset<N>& program_memory)
     {
         T src1, src2;
-        tie(src1, src2) = two_inp<N, 5, 5>(program_memory);
+        tie(src1, src2) = two_inp<5, 5>(program_memory);
         // cerr<< "register[" << src1 << "] = " << registers[src1]
         // << "   resister[" << src2 << "] = " << registers[src2] << endl;   
         T t = registers[src2];
@@ -550,11 +562,11 @@ private:
         registers[src1] = t;
     }
 
-    template <size_t N> // 33
+    // 33
     void throw_away(bitset<N>& program_memory)
     {
         T src;
-        src = one_inp<N, 5>(program_memory);
+        src = one_inp<5>(program_memory);
         T t = garbage[registers[$grp]];
         garbage[registers[$grp]] = registers[src];
         registers[src] = t;
@@ -562,36 +574,36 @@ private:
         return;
     }
 
-    template <size_t N> // 34
+    // 34
     void exclusive_or(bitset<N>& program_memory)
     {
         T dest, src;
-        tie(dest, src) = two_inp<N, 5, 5>(program_memory);
+        tie(dest, src) = two_inp<5, 5>(program_memory);
         registers[dest] ^= registers[src];
         return;
     }
 
-    template <size_t N> // 35
+    // 35
     void negate(bitset<N>& program_memory)
     {
         T src;
-        src = one_inp<N, 5>(program_memory);
+        src = one_inp<5>(program_memory);
         registers[src] = -registers[src];
     }
 
-    template <size_t N> // 36
+    // 36
     void flip_all_bits(bitset<N>& program_memory)
     {
         T dest;
-        dest = one_inp<N, 5>(program_memory);
+        dest = one_inp<5>(program_memory);
         registers[dest] = ~registers[dest];
     }
 
-    template <size_t N> // 37
+    // 37
     void z_gate(bitset<N>& program_memory)
     {
         T target, n_bits;
-        tie(target, n_bits) = two_inp<N, 5, 5>(program_memory);
+        tie(target, n_bits) = two_inp<5, 5>(program_memory);
         if(parity(registers[target], registers[n_bits]) == 1)
             coefficient *= -1;
         return;
@@ -605,7 +617,7 @@ private:
             return;
         }
         coefficient *= (registers[r_idx] & (1 << bit_idx)) ? -1 / sqrt(2) : 1 / sqrt(2);
-        complex<float> old_coeffiecient = coefficient;
+        complex<double> old_coeffiecient = coefficient;
         apply_hadamard(r_idx, bit_idx-1);
         coefficient = old_coeffiecient;
 
@@ -618,11 +630,11 @@ private:
 
     }
 
-    template <size_t N> // 38
+    // 38
     void hadamard_gate(bitset<N> program_memory)
     {
         T target, n_bits;
-        tie(target, n_bits) = two_inp<N, 5, 5>(program_memory);
+        tie(target, n_bits) = two_inp<5, 5>(program_memory);
         uint64_t mask = (1 << registers[n_bits]) - 1;
         final_value = registers[target] ^ mask; //  the last R[n_bits] bit are flipped 
         apply_hadamard(target, registers[n_bits] - 1);
@@ -630,7 +642,7 @@ private:
         return;
     }
 
-    template <size_t N> // 63
+    // 63
     void end_program(bitset<N>& program_memory)
     {
         computation_completed = true;
@@ -659,7 +671,7 @@ public:
         return sub_computation_count;
     }
 
-    complex<float> get_coefficient(){
+    complex<double> get_coefficient(){
         return coefficient;
     }
 
@@ -667,25 +679,16 @@ public:
         pc = new_pc-1;
     }
 
-    template <size_t N>
+
     void execute(bitset<N>& program_memory)
     {
         int iteration = 0;
-        bitset<n_bit_opcode> opcode;
         reverseBitset(program_memory);
         do
         {
             iteration++;
-            // if(registers[1] != 1){
-            //     cerr << pc << " jump to " << pc + registers[1] << endl;
-            // }
             pc += registers[1];
-            for(int i = 0; i < n_bit_opcode; i ++) 
-                opcode[i] = program_memory[(pc*32)+n_bit_opcode-i-1];
-            // if(print_all)
-            //     cerr<< " " << opcode << " " << endl;
-            // you can't efficently transform this in a switch case
-            // beacause the opcode is not an integer but a bitset
+            read_opcode(program_memory);
             if(opcode == 0) {add(program_memory);   continue;}
             if(opcode == 1) {addi(program_memory);  continue;}
             if(opcode == 2) {cadd(program_memory);  continue;}
@@ -700,7 +703,7 @@ public:
             if(opcode == 11) {cdivi(program_memory);continue;}
             if(opcode == 12) {mul(program_memory);  continue;}
             if(opcode == 13) {muli(program_memory); continue;}
-            if(opcode == 14) {cmul(program_memory);         continue;}
+            if(opcode == 14) {cmul(program_memory); continue;}
             if(opcode == 15) {cmuli(program_memory);        continue;}
             if(opcode == 16) {swap_word_in_memory(program_memory);      continue;}
             if(opcode == 17) {xor_sign_extended_immediate(program_memory);  continue;}
@@ -728,27 +731,7 @@ public:
             if(opcode == 63) {end_program(program_memory);  break;}
             cerr<< "op code " << opcode << " non valido\n";
         }while(pc+registers[1] >= 0 && pc+registers[1] < N / 32 && iteration <= MAX_ITERATION);
-        check_errors(iteration, N);
+        check_errors(iteration);
         save_state(true); // final_save = true
-        reverseBitset(program_memory); // comment this, it's now acutally usefull
     }
 };
-
-/*TO DO 
-implement sign extension 
-based on the fun bits at
-the end of the instruction.
-To do that a revision of the 
-space given to the immediate
-needs to be reivisited
-
-TO IMPLEMENT
-in the comparison only the LSB is
-considered. The program
-
-if(2) cerr<< "evaluated true";
-else cerr<< "evaluated false";
-
-will result in:
-evaluated false
- */ 

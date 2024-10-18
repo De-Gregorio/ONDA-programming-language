@@ -109,7 +109,7 @@ class ParallelComputationsHandler():
 
         self.merge_equal_states(sub_computation_count)
         if to_show_results: self.show_results()
-        return self.results()
+        return self.results
             
 
     def show_results(self):

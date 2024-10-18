@@ -10,7 +10,7 @@ using namespace std;
 
 void execute_first_engine(bitset<N*32>& program_memory, int intial_pc)
 {
-    engine<int64_t> e(0, 1);
+    engine<int64_t, N*32> e(0, 1);
     e.set_pc(intial_pc);
     e.execute(program_memory);
     cout << e.get_sub_computation_count() << " " << e.get_coefficient() << endl;
@@ -21,7 +21,7 @@ void execute_secodary_engine(bitset<N*32>& program_memory, int intial_sub_comput
                              int computation_number)
 {
     string state_file_path = "engine_state" + to_string(computation_number) + ".bin";
-    engine<int64_t> e(computation_number, intial_sub_computation_count);
+    engine<int64_t, N*32> e(computation_number, intial_sub_computation_count);
     e.execute(program_memory);
     cout << e.get_sub_computation_count() << " " << e.get_coefficient() << endl;
     return;
