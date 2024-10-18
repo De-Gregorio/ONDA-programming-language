@@ -193,4 +193,4 @@ The ONDA programming language is intended as a prototype to demonstrate the task
 
 # Acknowledgments
 
-This project uses the [ANTLR](https://www.antlr.org/) Python package for parsing. We thank the ANTLR community for their contributions.
+This project uses the [ANTLR](https://www.antlr.org/) Python package for parsing.
