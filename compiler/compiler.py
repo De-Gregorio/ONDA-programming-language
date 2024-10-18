@@ -7,7 +7,7 @@ from .assembler import build_program
 
 
 def compile_in_assembly(FileName : str, to_build_graph = False, write_assembly = False):
-    input_stream = FileStream(read_from_file=True, fileName=FileName)  # 
+    input_stream = FileStream(fileName=FileName)  # 
     lexer = GramLexer(input_stream)
     stream = CommonTokenStream(lexer)
     parser = GramParser(stream)

@@ -9,8 +9,7 @@ from .ParallelComputationsHandler import ParallelComputationsHandler
 # GET_AARGS & CLEAN_AARGS
 #    __ID/num will be passed by copy, and the value in the ar will be thrown away
 #    const ID/num will be passed by copy, and the value in the ar will be reversed
-#    ID/num& will be passed by swap, the modified value in the ar will be put in the original var
-# optional: remove the N template EVERYWHERE
+#    ID/num& will be passed by swap, the modified value in the ar will be put in the original val
 # optional: build the program memory in binary 
 # optional: encode the entry point in the program memory.
 # problem: the variable gets added in the enviroment also if the if branch in which they are
