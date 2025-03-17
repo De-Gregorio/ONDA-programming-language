@@ -6,7 +6,7 @@ VOID : 'void';
 SEMICOLON : ';';
 TILDE : '~';
 OP_ADDITIVE : '+' | '-' | '^' | '#' | '@';
-OP_MULTIPLICATIVE : '*' | '/';
+OP_MULTIPLICATIVE : '*' | '/' | '&';
 OP_INPLACE : '+='
      | '-='
      | '*='

@@ -631,7 +631,7 @@ private:
     }
 
     // 38
-    void hadamard_gate(bitset<N> program_memory)
+    void hadamard_gate(bitset<N>& program_memory)
     {
         T target, n_bits;
         tie(target, n_bits) = two_inp<5, 5>(program_memory);
@@ -640,6 +640,14 @@ private:
         apply_hadamard(target, registers[n_bits] - 1);
         registers[target] = final_value;
         return;
+    }
+
+    // 39
+    void and_gate(bitset<N>& program_memory)
+    {
+        T dest, src1, src2;      
+        tie(dest, src1, src2) = three_inp<5, 5, 5>(program_memory);
+        registers[dest] ^= registers[src1] & registers[src2];
     }
 
     // 63
@@ -728,6 +736,7 @@ public:
             if(opcode == 36) {flip_all_bits(program_memory);    continue;}
             if(opcode == 37) {z_gate(program_memory);   continue;}
             if(opcode == 38) {hadamard_gate(program_memory); continue;}
+            if(opcode == 39) {and_gate(program_memory); continue;}
             if(opcode == 63) {end_program(program_memory);  break;}
             cerr<< "op code " << opcode << " non valido\n";
         }while(pc+registers[1] >= 0 && pc+registers[1] < N / 32 && iteration <= MAX_ITERATION);

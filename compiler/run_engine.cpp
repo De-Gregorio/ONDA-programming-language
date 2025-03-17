@@ -2,7 +2,7 @@
 #include <bitset>
 #include <string>
 #include "q_engine.h"
-#define N 500
+#define N 1500
 using namespace std;
 // TO DO 
 // save the program in binary
