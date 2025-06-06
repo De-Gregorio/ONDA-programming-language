@@ -120,7 +120,7 @@ private:
         for(int i = 0; i < n_bit_src3; i++)
             src3[i] = program_memory[(offset)+n_bit_src3-i-1];
         offset += n_bit_src3;
-        for(int i = 0; i < n_bit_src3; i++)
+        for(int i = 0; i < n_bit_src4; i++)
             src4[i] = program_memory[(offset)+n_bit_src4-i-1];
 
         tuple<T, T, T, T> t = {src1.to_ullong(),
